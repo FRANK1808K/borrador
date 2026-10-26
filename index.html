@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Laboratorio de neuronas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: mesa de trabajo. Arriba la red dibujada (las bolitas), debajo la hoja guiada de la neurona elegida, y al final las tablas de pesos como en los cuestionarios. */
+:root{
+  --bg:#f3f5f9; --paper:#ffffff; --ink:#1b2333; --muted:#5b6578; --line:#d9dee8;
+  --pos:#2f5fc4; --pos-soft:#e3ebfb; --neg:#b03a62; --neg-soft:#f8e4eb;
+  --accent:#d17d0a; --accent-soft:#fdf0db; --ok:#1f8a5a; --ok-soft:#dff3e9; --code:#eef1f7;
+  --f-display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --f-body:"Atkinson Hyperlegible",ui-sans-serif,system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11151d; --paper:#19202b; --ink:#e6eaf2; --muted:#9aa5b8; --line:#2c3545;
+  --pos:#7ba3f2; --pos-soft:#1e2c47; --neg:#ec7fa3; --neg-soft:#3c1f2b;
+  --accent:#f2a93b; --accent-soft:#3a2b14; --ok:#5ccf98; --ok-soft:#173528; --code:#202836; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11151d; --paper:#19202b; --ink:#e6eaf2; --muted:#9aa5b8; --line:#2c3545;
+  --pos:#7ba3f2; --pos-soft:#1e2c47; --neg:#ec7fa3; --neg-soft:#3c1f2b;
+  --accent:#f2a93b; --accent-soft:#3a2b14; --ok:#5ccf98; --ok-soft:#173528; --code:#202836; color-scheme:dark}
+
+*{box-sizing:border-box}
+html{color-scheme:light}body{margin:0}[hidden]{display:none!important}img{max-width:100%}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 64px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;line-height:1.15;margin:0}
+h1{font-size:clamp(1.9rem,5vw,2.8rem);font-weight:800;letter-spacing:-.02em}
+h2{font-size:1.35rem;font-weight:800}
+h3{font-size:1.05rem;font-weight:600}
+p{margin:0;max-width:72ch}
+.mono,.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.pos{color:var(--pos)} .neg{color:var(--neg)}
+header{padding-block:36px 0;display:flex;flex-direction:column;gap:10px}
+.eyebrow{font-family:var(--f-mono);font-size:.76rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+
+.how{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.how div{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 14px;display:flex;gap:10px;align-items:baseline}
+.how b{font-family:var(--f-mono);color:var(--accent)}
+
+.tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tabs button{background:transparent;color:var(--muted);border:none;border-bottom:3px solid transparent;border-radius:0;padding:10px 14px;font-family:var(--f-display);font-size:1.05rem}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px clamp(14px,3vw,24px);display:flex;flex-direction:column;gap:14px;min-width:0}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{border:none;border-radius:0;background:transparent;color:var(--ink);font-weight:400;padding:7px 12px}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper);font-weight:700}
+button{font:inherit;font-weight:700;font-size:.9rem;border:1px solid var(--pos);background:var(--pos);color:var(--paper);padding:7px 13px;border-radius:8px;cursor:pointer}
+button.ghost{background:transparent;color:var(--pos)}
+button.small{padding:3px 9px;font-size:.82rem}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+select,input[type=text]{font:inherit;font-size:.9rem;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:6px 8px}
+input.cell{width:5.6em;font-family:var(--f-mono);font-size:.86rem;text-align:right;padding:4px 6px}
+input.name{width:9em;text-align:left;font-family:var(--f-body)}
+input.bad{border-color:var(--neg);background:var(--neg-soft)}
+label.chk{display:inline-flex;gap:6px;align-items:center;font-size:.9rem}
+
+.arch{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px}
+.layer{flex:none;min-width:150px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;background:var(--bg)}
+.layer .lt{font-family:var(--f-display);font-weight:600}
+.layer .cnt{display:flex;align-items:center;gap:8px}
+.layer .cnt span{font-family:var(--f-mono);min-width:1.6em;text-align:center}
+.addl{align-self:center;flex:none}
+
+.netbox{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--paper)}
+.netbox svg{display:block;margin:0 auto;max-width:none}
+.edge{fill:none}
+.edge.pos{stroke:var(--pos)} .edge.neg{stroke:var(--neg)}
+.wl rect{fill:var(--paper);stroke-width:1}
+.wl.pos rect{stroke:var(--pos)} .wl.neg rect{stroke:var(--neg)}
+.wl.pos text{fill:var(--pos)} .wl.neg text{fill:var(--neg)}
+.wl{cursor:pointer}
+.nd{cursor:pointer}
+.nd circle{stroke:var(--ink);stroke-width:1.6}
+.nd.in circle{fill:var(--pos-soft)} .nd.in.negv circle{fill:var(--neg-soft)}
+.nd.on circle{fill:var(--ok-soft)} .nd.off circle{fill:var(--code);stroke:var(--muted)}
+.nd.q circle{fill:var(--paper);stroke-dasharray:4 3}
+.nd.sel circle{stroke:var(--accent);stroke-width:4}
+.nd.done .ring{fill:none;stroke:var(--ok);stroke-width:2.5}
+.t-ink{fill:var(--ink)} .t-mut{fill:var(--muted)} .t-acc{fill:var(--accent)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:.84rem;color:var(--muted)}
+.legend i{display:inline-block;width:22px;height:3px;vertical-align:middle;margin-right:6px}
+
+.status{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.pill{font-family:var(--f-mono);font-size:.82rem;padding:3px 10px;border-radius:999px;background:var(--code)}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.acc{background:var(--accent-soft);color:var(--accent)}
+
+.sheet{display:flex;flex-direction:column;gap:14px}
+.stage{border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.stage.cur{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.stage.okst{border-color:var(--ok)}
+.stage h3 small{font-family:var(--f-mono);font-weight:400;font-size:.78rem;color:var(--accent);margin-right:6px}
+.why{font-size:.92rem;color:var(--muted)}
+.line{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-family:var(--f-mono);font-size:.9rem}
+.line .eq{white-space:nowrap}
+.fb{font-family:var(--f-body);font-size:.86rem}
+.fb.ok{color:var(--ok)} .fb.bad{color:var(--neg)} .fb.rev{color:var(--accent)}
+.calc{font-family:var(--f-mono);font-size:.86rem;background:var(--code);border-radius:10px;padding:12px 14px;overflow-x:auto;display:flex;flex-direction:column;gap:4px}
+.calc div{white-space:nowrap}
+.calc .h{font-family:var(--f-body);font-weight:700;margin-top:6px}
+.calc .h:first-child{margin-top:0}
+.calc .off{color:var(--muted)}
+.box{border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.box.idea{background:var(--accent-soft)} .box.good{background:var(--ok-soft)} .box.warn{background:var(--neg-soft)}
+
+.edgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px 16px}
+.edrow{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.9rem}
+.edrow span{min-width:0}
+
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+th,td{padding:6px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-family:var(--f-mono);font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);background:var(--code)}
+tr:last-child td{border-bottom:none}
+td.r,th.r{text-align:right}
+tr.selrow td{background:var(--accent-soft)}
+tr.dim td{color:var(--muted)}
+.mats{display:flex;flex-direction:column;gap:16px}
+textarea{width:100%;min-height:90px;font-family:var(--f-mono);font-size:.8rem;background:var(--code);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px}
+details>summary{cursor:pointer;font-weight:700}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<p style="padding-top:16px;margin:0"><a href="clases.html" style="color:var(--pos)">Ver las clases: Neuronas desde cero →</a></p>
+<header>
+  <span class="eyebrow">Perceptrón · redes con ReLU · paso a paso</span>
+  <h1>Laboratorio de neuronas</h1>
+  <p class="muted">Arma la red de tu ejercicio, toca una bolita y resuélvela como en el cuaderno: primero los productos, luego la suma con el sesgo y al final la activación. La página revisa cada paso y te dice en qué te equivocaste.</p>
+  <div class="how">
+    <div><b>1</b><span>Elige un ejemplo o arma tu red: capas, número de bolitas y activación.</span></div>
+    <div><b>2</b><span>Copia los pesos, sesgos y entradas del enunciado en las tablas de abajo.</span></div>
+    <div><b>3</b><span>Pasa a <b>Practicar</b> y resuelve neurona por neurona, de izquierda a derecha.</span></div>
+  </div>
+</header>
+
+<div class="tabs" role="tablist">
+  <button type="button" role="tab" id="tabRed" aria-selected="true">Propagación en una red</button>
+  <button type="button" role="tab" id="tabTrain" aria-selected="false">Entrenar un perceptrón</button>
+</div>
+
+<!-- ============ RED ============ -->
+<div id="viewRed" class="wrap" style="max-width:none">
+  <section class="panel">
+    <div class="toolbar">
+      <select id="presetNet" aria-label="Ejemplos"></select>
+      <button type="button" class="ghost" id="loadNet">Abrir ejemplo</button>
+      <button type="button" class="ghost" id="randNet">Ejercicio nuevo al azar</button>
+      <span style="flex:1"></span>
+      <div class="seg" role="group" aria-label="Modo">
+        <button type="button" data-mode="build">Construir</button>
+        <button type="button" data-mode="guided">Practicar paso a paso</button>
+        <button type="button" data-mode="solution">Ver solución</button>
+      </div>
+    </div>
+    <div>
+      <h3 style="margin-bottom:8px">Arquitectura</h3>
+      <div class="arch" id="arch"></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="toolbar">
+      <h2 id="netTitle">La red</h2><span style="flex:1"></span>
+      <label class="chk"><input type="checkbox" id="showW"> Mostrar pesos sobre las líneas</label>
+    </div>
+    <div class="netbox" id="net"></div>
+    <div class="legend"><span><i style="background:var(--pos)"></i>peso positivo</span><span><i style="background:var(--neg)"></i>peso negativo</span><span>grosor = tamaño del peso</span><span>bolita gris = apagada (salió 0)</span><span>toca una bolita o un peso para trabajarlo</span></div>
+    <div class="status" id="status"></div>
+  </section>
+
+  <section class="panel" id="detail"></section>
+
+  <section class="panel" id="fullSteps" hidden></section>
+
+  <section class="panel">
+    <h2>Datos del ejercicio</h2>
+    <p class="muted">Cada fila es una neurona destino y cada columna una neurona de la capa anterior, igual que en los cuestionarios. Acepta coma o punto decimal.</p>
+    <div class="mats" id="mats"></div>
+  </section>
+</div>
+
+<!-- ============ ENTRENAR ============ -->
+<div id="viewTrain" class="wrap" style="max-width:none" hidden>
+  <section class="panel" id="tCfg"></section>
+  <section class="panel" id="tDyn"></section>
+</div>
+
+<section class="panel">
+  <details>
+    <summary>Guardar o pasar tu ejercicio a otro dispositivo</summary>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:10px">
+      <p class="muted">Tu trabajo se guarda solo en este navegador. Para llevarlo a otro lado, copia el código y pégalo allá.</p>
+      <div class="toolbar"><button type="button" class="ghost" id="copyJson">Copiar código del ejercicio</button><button type="button" class="ghost" id="loadJson">Cargar el código pegado</button><span class="fb" id="jsonMsg"></span></div>
+      <textarea id="json" aria-label="Código del ejercicio"></textarea>
+    </div>
+  </details>
+</section>
+</div>
+
+<script>
+(function(){
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const cz=v=>Math.round(v*1e10)/1e10;
+const m=(v,d=4)=>(v<0&&cz(v)!==0?"−":"")+Math.abs(v).toFixed(d);
+const mm=v=>{const t=cz(v);return (t<0?"−":"")+String(Math.abs(t))};             // valor tal como lo escribió el enunciado
+const par=(v,f=mm)=>cz(v)<0?"("+f(v)+")":f(v);
+const num=s=>{const t=String(s).trim().replace(",",".").replace("−","-");if(t===""||t==="-"||t==="."||t==="-.")return null;const n=Number(t);return isFinite(n)?n:null};
+const rnd=(a,b)=>Math.round((a+Math.random()*(b-a))*100)/100;
+const clone=o=>JSON.parse(JSON.stringify(o));
+
+const ACT={
+  none:{n:"Sin activación (a = x)"},
+  relu:{n:"ReLU",f:z=>Math.max(0,z),why:"ReLU: si z es negativo sale 0; si es positivo sale z tal cual. a = máx(0, z)."},
+  stepge:{n:"Escalón (z ≥ 0 → 1)",f:z=>z>=0?1:0,why:"Escalón: si z ≥ 0 la salida es 1; si z < 0 es 0."},
+  stepgt:{n:"Escalón (z > 0 → 1)",f:z=>z>0?1:0,why:"Escalón estricto: solo si z > 0 la salida es 1. Si z da exactamente 0, sale 0."},
+  sigmoid:{n:"Sigmoide",f:z=>1/(1+Math.exp(-z)),why:"Sigmoide: a = 1 / (1 + e^(−z)). Da un valor entre 0 y 1."},
+  tanh:{n:"Tanh",f:z=>Math.tanh(z),why:"Tangente hiperbólica: a = tanh(z). Da un valor entre −1 y 1."},
+  linear:{n:"Lineal (a = z)",f:z=>z,why:"Lineal: la salida es el mismo z."}
+};
+const isStep=k=>k==="stepge"||k==="stepgt";
+function actExpr(k,z,a){
+  switch(k){case"relu":return`máx(0, ${m(z)}) = ${m(a)}`;
+    case"stepge":return`${m(z)} ${z>=0?"≥":"<"} 0 → ${a}`;
+    case"stepgt":return`${m(z)} ${z>0?">":"≤"} 0 → ${a}`;
+    case"sigmoid":return`1 / (1 + e^${par(-z,m)}) = ${m(a)}`;
+    case"tanh":return`tanh(${m(z)}) = ${m(a)}`;
+    default:return`a = z = ${m(a)}`;}
+}
+
+/* ---------------- Ejemplos ---------------- */
+const NETS={
+  maiz:{label:"Cuestionario del maíz · 4-4-4-2 · ReLU",layers:[{n:4,act:"none"},{n:4,act:"relu"},{n:4,act:"relu"},{n:2,act:"relu"}],x:[.8,-.3,.5,.54],
+    inNames:["Humedad","Temperatura","Nitrógeno","Vigor"],outNames:["Riego","Fertilización"],
+    W:[null,[[-.26,.77,-.23,.66],[.74,-.33,.22,-.67],[-.80,.36,-.97,.15],[.06,.56,-.48,-.51]],[[-.87,.27,.39,.96],[-.77,.31,.48,-.66],[.40,-.45,-.58,-.82],[.85,-.16,.83,.65]],[[0,.89,-.88,-.96],[-.65,.63,-.35,.36]]],
+    b:[null,[-.36,-.05,.40,-.30],[-.34,-.11,-.29,.36],[.26,.40]]},
+  diagrama:{label:"Red del diagrama · 4-1-4-1-2 · ReLU",layers:[{n:4,act:"none"},{n:1,act:"relu"},{n:4,act:"relu"},{n:1,act:"relu"},{n:2,act:"relu"}],x:[.8,-.3,.5,-.22],inNames:[],outNames:[],
+    W:[null,[[.62,-.06,-.66,-.87]],[[.79],[-.79],[.24],[.89]],[[-.38,-.81,.43,-.46]],[[.73],[-.67]]],b:[null,[-.28],[-.04,-.11,-.09,-.08],[.39],[.15,.24]]},
+  lluvia:{label:"Perceptrón de la lluvia · 4 entradas · escalón",layers:[{n:4,act:"none"},{n:1,act:"stepge"}],x:[.8,.7,.2,.9],
+    inNames:["Humedad","Prob. lluvia","Viento","Nubosidad"],outNames:["Alerta"],W:[null,[[.4,.3,-.2,.5]]],b:[null,[-.6]]},
+  practica:{label:"Perceptrón de la práctica · caso 1 · escalón A > 0",layers:[{n:3,act:"none"},{n:1,act:"stepgt"}],x:[5,4,3],
+    inNames:["Entregó","Sustentó","Quiz"],outNames:["Aprueba"],W:[null,[[.4,.3,.2]]],b:[null,[-2]]},
+  vacia:{label:"Red en blanco · 2-3-1 · para copiar tu ejercicio",layers:[{n:2,act:"none"},{n:3,act:"relu"},{n:1,act:"relu"}],x:[0,0],inNames:[],outNames:[],
+    W:[null,[[0,0],[0,0],[0,0]],[[0,0,0]]],b:[null,[0,0,0],[0]]}
+};
+const PRAC=[[5,4,3],[2,3,4],[4,1,2],[3,5,4],[1,2,5],[4,4,1],[2,5,5],[5,2,1],[3,2,2],[4,3,5],[1,4,3],[5,3,3],[2,1,1],[3,4,3],[4,2,0]];
+const TRAINS={
+  and:{label:"Compuerta AND (aprende en pocas épocas)",names:["x1","x2"],w:[0,0],b:0,alpha:.1,rule:"stepge",data:[{x:[0,0],d:0},{x:[0,1],d:0},{x:[1,0],d:0},{x:[1,1],d:1}]},
+  or:{label:"Compuerta OR",names:["x1","x2"],w:[0,0],b:0,alpha:.1,rule:"stepge",data:[{x:[0,0],d:0},{x:[0,1],d:1},{x:[1,0],d:1},{x:[1,1],d:1}]},
+  afiche:{label:"Ejemplo del afiche (w₁ 0.5, w₂ 0.8, b −1.5)",names:["x1","x2"],w:[.5,.8],b:-1.5,alpha:.1,rule:"stepge",data:[{x:[2,1],d:1},{x:[0,0],d:1}]},
+  practica:{label:"Aprobación de la práctica (falta la columna d)",names:["Entregó","Sustentó","Quiz"],w:[.4,.3,.2],b:-2,alpha:.1,rule:"stepgt",data:PRAC.map(x=>({x:x.slice(),d:null}))}
+};
+
+/* ---------------- Estado ---------------- */
+let S;
+function newTrain(key){const p=clone(TRAINS[key]);return Object.assign(p,{init:{w:p.w.slice(),b:p.b},log:[],ep:1,idx:0,errs:0,done:false,guided:true,stage:0,gv:{},gm:{}})}
+function freshState(){return{tab:"red",mode:"build",net:clone(NETS.maiz),sel:[1,0],showW:false,solved:{},g:null,train:newTrain("and")}}
+function load(){try{const r=localStorage.getItem("lab-neuronas-v1");if(r){const s=JSON.parse(r);if(s&&s.net&&s.train)return s}}catch(e){}return freshState()}
+function save(){try{localStorage.setItem("lab-neuronas-v1",JSON.stringify(S))}catch(e){}}
+S=load();
+const net=()=>S.net;
+
+function forward(N){const z=[null],a=[N.x.slice()];
+  for(let l=1;l<N.layers.length;l++){const zl=N.W[l].map((row,j)=>cz(row.reduce((s,w,i)=>s+w*a[l-1][i],0)+N.b[l][j]));z.push(zl);a.push(zl.map(v=>ACT[N.layers[l].act].f(v)))}
+  return{z,a}}
+const nName=(N,l,j)=>l===0?(N.inNames&&N.inNames[j]?N.inNames[j]:"x"+(j+1)):(l===N.layers.length-1?"ŷ"+(j+1):"h"+l+"."+(j+1));
+const nLong=(N,l,j)=>l===0?`x${j+1}${N.inNames&&N.inNames[j]?" ("+N.inNames[j]+")":""}`:l===N.layers.length-1?`ŷ${j+1}${N.outNames&&N.outNames[j]?" ("+N.outNames[j]+")":""}`:`neurona ${j+1} de Oculta ${l}`;
+const layerName=(N,l)=>l===0?"Entrada":l===N.layers.length-1?"Salida":"Oculta "+l;
+const edgeCount=N=>N.layers.slice(1).reduce((s,L,k)=>s+L.n*N.layers[k].n,0);
+const params=N=>N.layers.slice(1).reduce((s,L,k)=>s+L.n*N.layers[k].n+L.n,0);
+const key=(l,j)=>l+","+j;
+const layerSolved=l=>l===0||Array.from({length:net().layers[l].n},(_,j)=>S.solved[key(l,j)]).every(Boolean);
+function firstUnsolved(){const N=net();for(let l=1;l<N.layers.length;l++)for(let j=0;j<N.layers[l].n;j++)if(!S.solved[key(l,j)])return[l,j];return null}
+function resetPractice(){S.solved={};S.g=null}
+
+/* ---------------- Diagrama ---------------- */
+function netSVG(N,o){
+  const sizes=N.layers.map(L=>L.n),maxN=Math.max(...sizes),L=sizes.length,gy=104,gx=L>1?Math.max(150,Math.min(230,820/(L-1))):150;
+  const left=120,W=left*2+gx*(L-1),top=40,H=top+maxN*gy+70;
+  const X=l=>left+l*gx,Y=(l,j)=>top+maxN*gy/2+(j-(sizes[l]-1)/2)*gy;
+  const F=forward(N);let e="",lab="",nd="";
+  for(let l=1;l<L;l++)for(let j=0;j<sizes[l];j++)for(let i=0;i<sizes[l-1];i++){
+    const w=N.W[l][j][i],x1=X(l-1),y1=Y(l-1,i),x2=X(l),y2=Y(l,j),c=w>=0?"pos":"neg";
+    const dim=o.show(l-1,i)&&l-1>0&&F.a[l-1][i]===0;
+    e+=`<line class="edge ${c}" x1="${x1+28}" y1="${y1}" x2="${x2-28}" y2="${y2}" stroke-width="${(.7+Math.abs(w)*2.6).toFixed(2)}" opacity="${dim?.22:.8}"/>`;
+    if(o.showW){const t=.2+.55*((j+.5)/sizes[l]),lx=x1+28+(x2-x1-56)*t,ly=y1+(y2-y1)*t;
+      lab+=`<g class="wl ${c}" data-l="${l}" data-j="${j}" data-i="${i}"><title>w${j+1}${i+1} (capa ${l}) = ${mm(w)}</title><rect x="${lx-21}" y="${ly-9}" width="42" height="18" rx="5"/><text x="${lx}" y="${ly+4}" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="10.5" font-weight="600">${mm(w)}</text></g>`}}
+  for(let l=0;l<L;l++)for(let j=0;j<sizes[l];j++){
+    const x=X(l),y=Y(l,j),a=F.a[l][j],show=o.show(l,j),sel=o.sel&&o.sel[0]===l&&o.sel[1]===j;
+    let cls="nd "+(l===0?"in"+(a<0?" negv":""):!show?"q":a!==0?"on":"off")+(sel?" sel":"")+(o.done&&o.done(l,j)?" done":"");
+    const val=!show?"?":l===0?mm(a):m(a);
+    nd+=`<g class="${cls}" data-l="${l}" data-j="${j}" tabindex="0" role="button" aria-label="${esc(nLong(N,l,j))}"><circle cx="${x}" cy="${y}" r="27"/>${o.done&&o.done(l,j)?`<circle class="ring" cx="${x}" cy="${y}" r="32"/>`:""}
+      <text class="${show?"t-ink":"t-acc"}" x="${x}" y="${y+4.5}" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="${show?11.5:16}" font-weight="600">${val}</text>
+      <text class="t-mut" x="${x}" y="${y-33}" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="10.5">${esc(nName(N,l,j))}</text>
+      ${l>0?`<text class="t-mut" x="${x}" y="${y+44}" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="10.5">b = ${mm(N.b[l][j])}</text>`:""}</g>`;
+    if(l===L-1&&N.outNames&&N.outNames[j])nd+=`<text class="t-mut" x="${x+36}" y="${y+4}" font-family="Atkinson Hyperlegible,sans-serif" font-size="12">${esc(N.outNames[j])}</text>`;
+  }
+  let cap="";for(let l=0;l<L;l++)cap+=`<text class="t-ink" x="${X(l)}" y="${H-30}" text-anchor="middle" font-family="Bricolage Grotesque,sans-serif" font-size="14" font-weight="600">${layerName(N,l)}</text><text class="t-mut" x="${X(l)}" y="${H-13}" text-anchor="middle" font-family="Atkinson Hyperlegible,sans-serif" font-size="11.5">${sizes[l]} · ${l===0?"sin activación":ACT[N.layers[l].act].n.split(" (")[0]}</text>`;
+  return`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Diagrama de la red">${e}${lab}${nd}${cap}</svg>`;
+}
+
+/* ---------------- Render: red ---------------- */
+function renderArch(){
+  const N=net();let h="";
+  N.layers.forEach((L,l)=>{const last=l===N.layers.length-1,hid=l>0&&!last;
+    h+=`<div class="layer"><span class="lt">${layerName(N,l)}</span>
+      <div class="cnt"><button type="button" class="ghost small" data-a="dec" data-l="${l}" aria-label="Quitar neurona">−</button><span>${L.n}</span><button type="button" class="ghost small" data-a="inc" data-l="${l}" aria-label="Agregar neurona">+</button><span class="muted" style="font-family:var(--f-body);font-size:.8rem">bolitas</span></div>
+      ${l===0?`<span class="muted" style="font-size:.82rem">sin activación</span>`:`<select data-a="act" data-l="${l}" aria-label="Activación de ${layerName(N,l)}">${Object.keys(ACT).filter(k=>k!=="none").map(k=>`<option value="${k}"${k===L.act?" selected":""}>${ACT[k].n}</option>`).join("")}</select>`}
+      ${hid?`<button type="button" class="ghost small" data-a="del" data-l="${l}">Quitar capa</button>`:""}</div>`;
+    if(last)return;
+  });
+  h+=`<button type="button" class="ghost addl" data-a="add">+ Capa oculta</button>`;
+  $("#arch").innerHTML=h;
+}
+function renderDiagram(){
+  const N=net(),g=S.mode==="guided";
+  $("#net").innerHTML=netSVG(N,{showW:S.showW,sel:S.sel,show:(l,j)=>!g||l===0||!!S.solved[key(l,j)],done:g?(l,j)=>l>0&&!!S.solved[key(l,j)]:null});
+  $("#netTitle").textContent=N.label?N.label.split(" · ")[0]:"Tu red";
+}
+function renderStatus(){
+  const N=net(),F=forward(N),out=F.a[N.layers.length-1],g=S.mode==="guided";
+  let h=`<span class="pill">${params(N)} parámetros (pesos + sesgos)</span>`;
+  if(g){const tot=N.layers.slice(1).reduce((s,L)=>s+L.n,0),ok=Object.values(S.solved).filter(Boolean).length;
+    h+=`<span class="pill ${ok===tot?"ok":"acc"}">Resueltas ${ok} de ${tot} neuronas</span>`;
+    if(ok===tot)h+=`<span class="pill ok">Salida: ${out.map((v,j)=>`${nName(N,N.layers.length-1,j)} = ${m(v)}`).join(" · ")}</span>`;}
+  else h+=`<span class="pill ok">Salida: ${out.map((v,j)=>`${nName(N,N.layers.length-1,j)}${N.outNames&&N.outNames[j]?" "+esc(N.outNames[j]):""} = ${m(v)}`).join(" · ")}</span>`;
+  $("#status").innerHTML=h;
+}
+function calcHTML(N,F,l,j){
+  const row=N.W[l][j],prev=F.a[l-1],k=N.layers[l].act;
+  const terms=row.map((w,i)=>`${par(w)}·${par(prev[i],l-1===0?mm:m)}`).join(" + ");
+  return`<div>z = ${terms} + ${par(N.b[l][j])}</div><div>z = <b>${m(F.z[l][j])}</b></div><div${F.a[l][j]===0?' class="off"':""}>a = ${actExpr(k,F.z[l][j],F.a[l][j])}</div>`;
+}
+function editorHTML(N,l,j){
+  if(l===0)return`<div class="edgrid"><div class="edrow"><span>Nombre</span><input type="text" class="name" id="ed-in-${j}" data-k="in" data-i="${j}" value="${esc(N.inNames&&N.inNames[j]||"")}" placeholder="x${j+1}"></div>
+    <div class="edrow"><span>Valor de entrada</span><input type="text" inputmode="decimal" class="cell" id="ed-x-${j}" data-k="x" data-i="${j}" value="${mm(N.x[j])}"></div></div>`;
+  const last=l===N.layers.length-1;
+  return`<div class="edgrid">${N.W[l][j].map((w,i)=>`<div class="edrow"><span>w<sub>${j+1}${i+1}</sub> desde ${esc(nName(N,l-1,i))}</span><input type="text" inputmode="decimal" class="cell" id="ed-w-${l}-${j}-${i}" data-k="w" data-l="${l}" data-j="${j}" data-i="${i}" value="${mm(w)}"></div>`).join("")}
+    <div class="edrow"><span><b>Sesgo b</b></span><input type="text" inputmode="decimal" class="cell" id="ed-b-${l}-${j}" data-k="b" data-l="${l}" data-j="${j}" value="${mm(N.b[l][j])}"></div>
+    ${last?`<div class="edrow"><span>Nombre de la salida</span><input type="text" class="name" id="ed-out-${j}" data-k="out" data-i="${j}" value="${esc(N.outNames&&N.outNames[j]||"")}" placeholder="ŷ${j+1}"></div>`:""}</div>`;
+}
+function renderDetail(){
+  const N=net(),el=$("#detail");
+  if(!S.sel||S.sel[0]>=N.layers.length||S.sel[1]>=N.layers[S.sel[0]].n){S.sel=null}
+  if(!S.sel){el.innerHTML=`<h2>Toca una bolita</h2><p class="muted">Selecciona una neurona en el diagrama para ver o practicar su cálculo.</p>`;return}
+  const [l,j]=S.sel,F=forward(N);
+  if(S.mode==="guided"){el.innerHTML=guidedHTML(N,F,l,j);return}
+  let h=`<div class="toolbar"><h2>${esc(nLong(N,l,j))}</h2><span class="pill">${layerName(N,l)}</span></div>`;
+  if(l===0)h+=`<p class="muted">Las entradas no calculan nada: solo entregan su valor a la siguiente capa.</p>`;
+  h+=editorHTML(N,l,j);
+  if(l>0)h+=`<div class="calc">${calcHTML(N,F,l,j)}</div><p class="why">${ACT[N.layers[l].act].why}</p>`;
+  el.innerHTML=h;
+}
+
+/* -------- Modo guiado (el corazón) -------- */
+function guidedHTML(N,F,l,j){
+  if(l===0)return`<h2>${esc(nLong(N,0,j))}</h2><p class="muted">Esta es una entrada: su valor es ${mm(N.x[j])} y no se calcula. Toca una bolita de la capa siguiente para empezar.</p>`;
+  if(!layerSolved(l-1)){return`<h2>${esc(nLong(N,l,j))}</h2><div class="box warn"><b>Todavía no</b><p>Para calcular esta neurona necesitas las salidas de ${layerName(N,l-1)}. Resuelve primero esa capa: la red se calcula de izquierda a derecha.</p></div><div><button type="button" id="gotoFirst">Ir a la primera neurona pendiente</button></div>`}
+  const k=key(l,j);if(!S.g||S.g.key!==k)S.g={key:k,stage:S.solved[k]?3:0,v:{},msg:{},rev:{}};
+  const g=S.g,row=N.W[l][j],prev=F.a[l-1],act=N.layers[l].act,n=row.length;
+  const st=i=>g.stage===i?"stage cur":g.stage>i?"stage okst":"stage";
+  const fb=f=>g.msg[f]?`<span class="fb ${g.msg[f][0]}">${g.msg[f][1]}</span>`:"";
+  const inp=(f,dis)=>`<input type="text" inputmode="decimal" class="cell" id="g-${f}" data-g="${f}" value="${esc(g.v[f]??"")}"${dis?" disabled":""} aria-label="Respuesta ${f}">`;
+  const pv=i=>l-1===0?mm(prev[i]):m(prev[i]);
+  let h=`<div class="toolbar"><h2>${esc(nLong(N,l,j))}</h2><span class="pill">${layerName(N,l)} · ${ACT[act].n}</span><span style="flex:1"></span><span class="muted mono" style="font-size:.85rem">a<sub>${j+1}</sub><sup>(${l})</sup> = f( Σ w<sub>${j+1}i</sub>·a<sub>i</sub> + b<sub>${j+1}</sub> )</span></div><div class="sheet">`;
+  // Paso 1
+  h+=`<div class="${st(0)}"><h3><small>PASO 1</small>Multiplica cada peso por el valor que llega por esa línea</h3>
+    <p class="why">Busca la fila ${j+1} de la matriz W(${l}). Cada peso w<sub>${j+1}i</sub> se multiplica por la salida de la neurona i de ${layerName(N,l-1)}. Cuidado con los signos: (−)·(−) = +, (−)·(+) = −.</p>`;
+  row.forEach((w,i)=>{h+=`<div class="line"><span class="eq">w<sub>${j+1}${i+1}</sub>·${esc(nName(N,l-1,i))} = ${par(w)} · ${par(prev[i],l-1===0?mm:m)} =</span>${inp("p"+i,g.stage>0)}${fb("p"+i)}</div>`});
+  if(g.stage===0)h+=`<div class="toolbar"><button type="button" data-gc="0">Comprobar productos</button><button type="button" class="ghost" data-gr="0">Mostrar respuesta</button></div>`;
+  h+=`</div>`;
+  // Paso 2
+  if(g.stage>=1){h+=`<div class="${st(1)}"><h3><small>PASO 2</small>Suma los productos y el sesgo</h3>
+    <p class="why">z = suma de todos los productos + b. El sesgo de esta neurona es b = ${mm(N.b[l][j])}; súmalo con su signo.</p>
+    <div class="line"><span class="eq">z = ${row.map((w,i)=>par(cz(w*prev[i]),m)).join(" + ")} + ${par(N.b[l][j])} =</span>${inp("z",g.stage>1)}${fb("z")}</div>
+    ${g.stage===1?`<div class="toolbar"><button type="button" data-gc="1">Comprobar z</button><button type="button" class="ghost" data-gr="1">Mostrar respuesta</button></div>`:""}</div>`}
+  // Paso 3
+  if(g.stage>=2){h+=`<div class="${st(2)}"><h3><small>PASO 3</small>Aplica la función de activación</h3>
+    <p class="why">${ACT[act].why}</p>
+    <div class="line"><span class="eq">a = f(${m(F.z[l][j])}) =</span>${inp("a",g.stage>2)}${fb("a")}</div>
+    ${g.stage===2?`<div class="toolbar"><button type="button" data-gc="2">Comprobar a</button><button type="button" class="ghost" data-gr="2">Mostrar respuesta</button></div>`:""}</div>`}
+  if(g.stage>=3){const nx=firstUnsolved(),a=F.a[l][j];
+    h+=`<div class="box good"><b>Neurona lista: a = ${m(a)}</b><p>${a===0&&l>0?"Quedó apagada: su salida es 0, así que no aporta nada a la capa siguiente.":"Este valor viaja por sus líneas hacia la capa siguiente."}</p>
+    <div class="calc">${calcHTML(N,F,l,j)}</div></div>`;
+    h+=nx?`<div><button type="button" id="gotoFirst">Siguiente neurona →</button></div>`:finalHTML(N,F);}
+  return h+`</div>`;
+}
+function finalHTML(N,F){const L=N.layers.length-1,out=F.a[L];
+  let best=0;out.forEach((v,j)=>{if(v>out[best])best=j});
+  const lab=j=>`${nName(N,L,j)}${N.outNames&&N.outNames[j]?" ("+esc(N.outNames[j])+")":""}`;
+  const allZero=out.every(v=>v===0);
+  return`<div class="box idea"><b>¡Terminaste la red!</b><p>Salida final: ${out.map((v,j)=>`${lab(j)} = <b>${m(v)}</b>`).join(" · ")}.</p>
+   ${out.length>1?`<p>${allZero?"Todas las salidas dieron 0: la red no recomienda ninguna acción.":`La salida más alta es ${lab(best)}. Si las salidas son puntajes de urgencia, esa sería la prioridad. Una salida en 0 significa que esa neurona quedó apagada.`}</p>`:""}
+   <div class="toolbar"><button type="button" id="again">Otro ejercicio al azar con esta misma red</button></div></div>`}
+function check(stage){
+  const N=net(),F=forward(N),[l,j]=S.sel,g=S.g,row=N.W[l][j],prev=F.a[l-1],act=N.layers[l].act;
+  if(stage===0){let all=true;
+    row.forEach((w,i)=>{const f="p"+i,v=num(g.v[f]??""),t=cz(w*prev[i]);
+      if(v===null){g.msg[f]=["bad","Escribe un número."];all=false;return}
+      if(Math.abs(v-t)<=6e-4){g.msg[f]=["ok","✓"];return}
+      all=false;g.msg[f]=["bad",Math.abs(v+t)<=6e-4&&t!==0?"Casi: revisa el signo.":`Revisa: multiplica ${par(w)} por ${par(prev[i],m)}.`]});
+    if(all)g.stage=1;}
+  if(stage===1){const v=num(g.v.z??""),t=F.z[l][j],sum=cz(t-N.b[l][j]);
+    if(v===null)g.msg.z=["bad","Escribe un número."];
+    else if(Math.abs(v-t)<=1.5e-3){g.msg.z=["ok","✓ "+(t<0?"z es negativo.":"z es positivo o cero.")];g.stage=2}
+    else if(Math.abs(v-sum)<=1.5e-3)g.msg.z=["bad","Te faltó sumar el sesgo b."];
+    else if(Math.abs(v-(sum-N.b[l][j]))<=1.5e-3)g.msg.z=["bad","Sumaste el sesgo con el signo cambiado."];
+    else g.msg.z=["bad","La suma no da. Revisa los signos al sumar los productos."];}
+  if(stage===2){const v=num(g.v.a??""),t=F.a[l][j],z=F.z[l][j],tol=isStep(act)?1e-9:act==="sigmoid"||act==="tanh"?2e-3:1.5e-3;
+    if(v===null)g.msg.a=["bad","Escribe un número."];
+    else if(Math.abs(v-t)<=tol){g.msg.a=["ok","✓"];g.stage=3;S.solved[g.key]=true}
+    else if(act==="relu"&&z<0&&Math.abs(v-z)<=1.5e-3)g.msg.a=["bad","z es negativo: ReLU lo convierte en 0."];
+    else if(isStep(act))g.msg.a=["bad","Con escalón la salida solo puede ser 0 o 1. Compara z con 0."];
+    else g.msg.a=["bad","Revisa la activación. "+ACT[act].why];}
+  refresh();
+}
+function reveal(stage){
+  const N=net(),F=forward(N),[l,j]=S.sel,g=S.g;
+  if(stage===0){N.W[l][j].forEach((w,i)=>{g.v["p"+i]=m(cz(w*F.a[l-1][i]));g.msg["p"+i]=["rev","respuesta mostrada"]});g.stage=1}
+  if(stage===1){g.v.z=m(F.z[l][j]);g.msg.z=["rev","respuesta mostrada"];g.stage=2}
+  if(stage===2){g.v.a=m(F.a[l][j]);g.msg.a=["rev","respuesta mostrada"];g.stage=3;S.solved[g.key]=true}
+  refresh();
+}
+
+function renderFull(){
+  const el=$("#fullSteps");el.hidden=S.mode!=="solution";if(el.hidden)return;
+  const N=net(),F=forward(N);let h="";
+  for(let l=1;l<N.layers.length;l++){h+=`<div class="h">${layerName(N,l)} · ${ACT[N.layers[l].act].n} · recibe (${F.a[l-1].map(v=>l-1===0?mm(v):m(v)).join(", ")})</div>`;
+    for(let j=0;j<N.layers[l].n;j++)h+=`<div class="h" style="font-weight:400">${esc(nLong(N,l,j))}</div>`+calcHTML(N,F,l,j);}
+  el.innerHTML=`<h2>Procedimiento completo</h2><p class="muted">Así quedaría en el cuaderno, capa por capa, con 4 decimales.</p><div class="calc">${h}</div>`;
+}
+function renderMats(){
+  const N=net();let h=`<div><h3>Entradas</h3><div class="tablewrap" style="margin-top:6px"><table><tr><th>Neurona</th><th>Nombre (opcional)</th><th class="r">Valor</th></tr>`+
+    N.x.map((v,i)=>`<tr${S.sel&&S.sel[0]===0&&S.sel[1]===i?' class="selrow"':""}><td>x${i+1}</td><td><input type="text" class="name" id="m-in-${i}" data-k="in" data-i="${i}" value="${esc(N.inNames&&N.inNames[i]||"")}" placeholder="x${i+1}"></td><td class="r"><input type="text" inputmode="decimal" class="cell" id="m-x-${i}" data-k="x" data-i="${i}" value="${mm(v)}"></td></tr>`).join("")+`</table></div></div>`;
+  for(let l=1;l<N.layers.length;l++){const n=N.layers[l].n,p=N.layers[l-1].n;
+    h+=`<div><h3>${layerName(N,l-1)} → ${layerName(N,l)} · Matriz W(${l}) de ${n}×${p}</h3><div class="tablewrap" style="margin-top:6px"><table><tr><th>Neurona</th>${Array.from({length:p},(_,i)=>`<th class="r">desde ${esc(nName(N,l-1,i))}</th>`).join("")}<th class="r">Sesgo b</th></tr>`;
+    for(let j=0;j<n;j++)h+=`<tr${S.sel&&S.sel[0]===l&&S.sel[1]===j?' class="selrow"':""}><td>${esc(nName(N,l,j))}</td>${N.W[l][j].map((w,i)=>`<td class="r"><input type="text" inputmode="decimal" class="cell" id="m-w-${l}-${j}-${i}" data-k="w" data-l="${l}" data-j="${j}" data-i="${i}" value="${mm(w)}"></td>`).join("")}<td class="r"><input type="text" inputmode="decimal" class="cell" id="m-b-${l}-${j}" data-k="b" data-l="${l}" data-j="${j}" value="${mm(N.b[l][j])}"></td></tr>`;
+    h+=`</table></div></div>`}
+  $("#mats").innerHTML=h;
+}
+function renderModeBtns(){document.querySelectorAll(".seg button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.mode===S.mode)));$("#showW").checked=S.showW}
+function refresh(skip){renderModeBtns();renderDiagram();renderStatus();if(skip!=="detail")renderDetail();renderFull();if(skip!=="mats")renderMats();save()}
+function full(){renderArch();refresh()}
+
+/* -------- Cambios de estructura -------- */
+function zeros(r,c){return Array.from({length:r},()=>Array(c).fill(0))}
+function setCount(l,n){const N=net();n=Math.max(1,Math.min(8,n));const old=N.layers[l].n;if(n===old)return;N.layers[l].n=n;
+  if(l===0){N.x=Array.from({length:n},(_,i)=>N.x[i]??0);N.inNames=(N.inNames||[]).slice(0,n)}
+  else{N.W[l]=Array.from({length:n},(_,j)=>N.W[l][j]?N.W[l][j].slice():Array(N.layers[l-1].n).fill(0));N.b[l]=Array.from({length:n},(_,j)=>N.b[l][j]??0)}
+  if(l===N.layers.length-1)N.outNames=(N.outNames||[]).slice(0,n);
+  if(l+1<N.layers.length)N.W[l+1]=N.W[l+1].map(r=>Array.from({length:n},(_,i)=>r[i]??0));
+  N.label="";resetPractice();full()}
+function addLayer(){const N=net();if(N.layers.length>=7)return;const at=N.layers.length-1,prev=N.layers[at-1].n,n=2;
+  N.layers.splice(at,0,{n,act:"relu"});N.W.splice(at,0,zeros(n,prev));N.b.splice(at,0,Array(n).fill(0));N.W[at+1]=zeros(N.layers[at+1].n,n);N.label="";resetPractice();full()}
+function delLayer(l){const N=net();N.layers.splice(l,1);N.W.splice(l,1);N.b.splice(l,1);N.W[l]=zeros(N.layers[l].n,N.layers[l-1].n);N.label="";S.sel=null;resetPractice();full()}
+function randomize(){const N=net();N.x=N.x.map(()=>rnd(-1,1));for(let l=1;l<N.layers.length;l++){N.W[l]=N.W[l].map(r=>r.map(()=>rnd(-1,1)));N.b[l]=N.b[l].map(()=>rnd(-.5,.5))}
+  N.label="Ejercicio al azar";N.inNames=[];S.mode="guided";resetPractice();S.sel=firstUnsolved();full()}
+
+/* -------- Eventos red -------- */
+$("#presetNet").innerHTML=Object.entries(NETS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("");
+$("#loadNet").onclick=()=>{S.net=clone(NETS[$("#presetNet").value]);S.showW=edgeCount(S.net)<=24;resetPractice();S.sel=S.mode==="guided"?firstUnsolved():[1,0];full()};
+$("#randNet").onclick=randomize;
+document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{S.mode=b.dataset.mode;S.g=null;if(S.mode==="guided"&&(!S.sel||S.sel[0]===0||!layerSolved(S.sel[0]-1)))S.sel=firstUnsolved()||S.sel;refresh()});
+$("#showW").onchange=e=>{S.showW=e.target.checked;refresh()};
+$("#arch").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;const l=+b.dataset.l;
+  if(b.dataset.a==="inc")setCount(l,net().layers[l].n+1);if(b.dataset.a==="dec")setCount(l,net().layers[l].n-1);if(b.dataset.a==="del")delLayer(l);if(b.dataset.a==="add")addLayer()});
+$("#arch").addEventListener("change",e=>{if(e.target.dataset.a==="act"){net().layers[+e.target.dataset.l].act=e.target.value;resetPractice();refresh()}});
+function pick(l,j,focusI){S.sel=[l,j];refresh();if(focusI!=null&&S.mode!=="guided"){const el=document.getElementById(`ed-w-${l}-${j}-${focusI}`);el&&el.focus()}
+  if(innerWidth<760)$("#detail").scrollIntoView({behavior:"smooth",block:"start"})}
+$("#net").addEventListener("click",e=>{const w=e.target.closest(".wl");if(w){pick(+w.dataset.l,+w.dataset.j,+w.dataset.i);return}
+  const n=e.target.closest(".nd");if(n)pick(+n.dataset.l,+n.dataset.j)});
+$("#net").addEventListener("keydown",e=>{const n=e.target.closest(".nd");if(n&&(e.key==="Enter"||e.key===" ")){e.preventDefault();pick(+n.dataset.l,+n.dataset.j)}});
+function onEdit(e,src){const t=e.target,k=t.dataset.k;if(!k)return;const N=net();
+  if(k==="in"){N.inNames=N.inNames||[];N.inNames[+t.dataset.i]=t.value;refresh(src);return}
+  if(k==="out"){N.outNames=N.outNames||[];N.outNames[+t.dataset.i]=t.value;refresh(src);return}
+  const v=num(t.value);t.classList.toggle("bad",v===null);if(v===null)return;
+  if(k==="x")N.x[+t.dataset.i]=v;if(k==="w")N.W[+t.dataset.l][+t.dataset.j][+t.dataset.i]=v;if(k==="b")N.b[+t.dataset.l][+t.dataset.j]=v;
+  resetPractice();refresh(src)}
+$("#mats").addEventListener("input",e=>onEdit(e,"mats"));
+$("#mats").addEventListener("focusin",e=>{const t=e.target;if(t.dataset.k==="w"||t.dataset.k==="b"){const l=+t.dataset.l,j=+t.dataset.j;if(!S.sel||S.sel[0]!==l||S.sel[1]!==j){S.sel=[l,j];renderDiagram();renderDetail();document.querySelectorAll("#mats tr.selrow").forEach(r=>r.classList.remove("selrow"));t.closest("tr").classList.add("selrow")}}});
+$("#detail").addEventListener("input",e=>{if(e.target.dataset.g){S.g.v[e.target.dataset.g]=e.target.value;save();return}onEdit(e,"detail")});
+$("#detail").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+  if(b.dataset.gc)check(+b.dataset.gc);else if(b.dataset.gr)reveal(+b.dataset.gr);
+  else if(b.id==="gotoFirst"){S.sel=firstUnsolved();S.g=null;refresh();const f=$("#g-p0");f&&f.focus()}
+  else if(b.id==="again")randomize()});
+$("#detail").addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.dataset.g){e.preventDefault();check(S.g.stage)}});
+
+/* ================= Entrenamiento ================= */
+const T=()=>S.train;
+function tReset(){const t=T();t.w=t.init.w.slice();t.b=t.init.b;t.log=[];t.ep=1;t.idx=0;t.errs=0;t.done=false;t.stage=0;t.gv={};t.gm={}}
+function tCalc(){const t=T(),r=t.data[t.idx],A=cz(t.w.reduce((s,w,i)=>s+w*r.x[i],0)+t.b),yh=ACT[t.rule].f(A),e=r.d==null?null:r.d-yh;
+  return{r,A,yh,e,nw:e==null?null:t.w.map((w,i)=>cz(w+t.alpha*e*r.x[i])),nb:e==null?null:cz(t.b+t.alpha*e)}}
+function tCommit(){const t=T(),c=tCalc();if(c.e==null)return;
+  t.log.push({ep:t.ep,caso:t.idx+1,x:c.r.x.slice(),d:c.r.d,A:c.A,yh:c.yh,e:c.e,w:c.nw.slice(),b:c.nb,ow:t.w.slice(),ob:t.b});
+  t.w=c.nw;t.b=c.nb;if(c.e)t.errs++;t.idx++;t.stage=0;t.gv={};t.gm={};
+  if(t.idx>=t.data.length){if(t.errs===0)t.done=true;else{t.ep++;t.idx=0;t.errs=0}}}
+function tMissing(){return T().data.map((r,i)=>r.d==null||r.x.some(v=>v==null)?i+1:0).filter(Boolean)}
+function renderTCfg(){const t=T(),k=t.w.length;
+  let h=`<div class="toolbar"><h2>Configura el perceptrón</h2><span style="flex:1"></span><select id="presetTrain" aria-label="Ejemplos de entrenamiento">${Object.entries(TRAINS).map(([kk,v])=>`<option value="${kk}">${v.label}</option>`).join("")}</select><button type="button" class="ghost" id="loadTrain">Abrir ejemplo</button></div>
+  <p class="muted">Un perceptrón aprende así: calcula su salida para un caso, la compara con la respuesta correcta d y, si se equivocó, corrige sus pesos. Pasar por todos los casos es una <b>época</b>.</p>
+  <div class="edgrid">
+    <div class="edrow"><span>Número de entradas</span><span class="cnt" style="display:flex;gap:6px;align-items:center"><button type="button" class="ghost small" id="tDec">−</button><span class="mono">${k}</span><button type="button" class="ghost small" id="tInc">+</button></span></div>
+    <div class="edrow"><span>Tasa de aprendizaje α</span><input type="text" inputmode="decimal" class="cell" id="t-alpha" data-t="alpha" value="${mm(t.alpha)}"></div>
+    <div class="edrow"><span>Activación</span><select id="t-rule" data-t="rule">${["stepge","stepgt"].map(r=>`<option value="${r}"${r===t.rule?" selected":""}>${ACT[r].n}</option>`).join("")}</select></div>
+  </div>
+  <h3>Pesos y sesgo iniciales</h3><div class="edgrid">${t.init.w.map((w,i)=>`<div class="edrow"><span>w${i+1} (${esc(t.names[i]||"x"+(i+1))})</span><input type="text" inputmode="decimal" class="cell" id="t-w0-${i}" data-t="w0" data-i="${i}" value="${mm(w)}"></div>`).join("")}
+    <div class="edrow"><span>Sesgo b</span><input type="text" inputmode="decimal" class="cell" id="t-b0" data-t="b0" value="${mm(t.init.b)}"></div></div>
+  <h3>Datos de entrenamiento</h3><div class="tablewrap"><table><tr><th>Caso</th>${t.init.w.map((_,i)=>`<th class="r"><input type="text" class="name" style="width:7em" id="t-nm-${i}" data-t="nm" data-i="${i}" value="${esc(t.names[i]||"")}" placeholder="x${i+1}"></th>`).join("")}<th class="r">d (correcta)</th><th></th></tr>
+  ${t.data.map((r,ri)=>`<tr><td>${ri+1}</td>${r.x.map((v,i)=>`<td class="r"><input type="text" inputmode="decimal" class="cell" id="t-x-${ri}-${i}" data-t="x" data-r="${ri}" data-i="${i}" value="${v==null?"":mm(v)}"></td>`).join("")}<td class="r"><input type="text" inputmode="numeric" class="cell" id="t-d-${ri}" data-t="d" data-r="${ri}" value="${r.d==null?"":r.d}" placeholder="0 o 1"></td><td><button type="button" class="ghost small" data-del="${ri}" aria-label="Borrar caso ${ri+1}">×</button></td></tr>`).join("")}</table></div>
+  <div><button type="button" class="ghost" id="tAddRow">+ Agregar caso</button></div>`;
+  $("#tCfg").innerHTML=h;$("#presetTrain").value=Object.keys(TRAINS).find(k=>TRAINS[k].label===t.label)||"and";
+}
+function renderTDyn(){const t=T(),miss=tMissing(),k=t.w.length;let h=`<div class="toolbar"><h2>Entrenamiento</h2><span class="pill">Época ${t.ep}</span>${t.done?`<span class="pill ok">Aprendió: una época completa sin errores</span>`:`<span class="pill acc">Caso ${t.idx+1} de ${t.data.length}</span>`}<span style="flex:1"></span>
+    <label class="chk"><input type="checkbox" id="tGuided"${t.guided?" checked":""}> Hacerlo yo paso a paso</label></div>`;
+  const cur=t.done?null:t.data[t.idx];
+  const N={layers:[{n:k,act:"none"},{n:1,act:t.rule}],x:cur?cur.x.map(v=>v??0):Array(k).fill(0),inNames:t.names,outNames:["ŷ"],W:[null,[t.w.slice()]],b:[null,[t.b]]};
+  h+=`<div class="netbox">${netSVG(N,{showW:true,sel:null,show:(l)=>l===0||!t.guided||t.stage>=2||t.done})}</div>
+    <p class="mono" style="font-size:.9rem">Pesos actuales: ${t.w.map((w,i)=>`w${i+1} = ${mm(w)}`).join(" · ")} · b = ${mm(t.b)}</p>`;
+  if(miss.length)h+=`<div class="box warn"><b>Faltan datos</b><p>Completa la columna d (y las x vacías) en los casos ${miss.join(", ")}. Sin la respuesta correcta no se puede calcular el error.</p></div>`;
+  if(t.done)h+=`<div class="box good"><b>¡Listo!</b><p>En la época ${t.ep} todos los casos dieron error 0, así que los pesos ya no cambian. Pesos finales: ${t.w.map((w,i)=>`w${i+1} = ${mm(w)}`).join(", ")}, b = ${mm(t.b)}.</p></div>`;
+  else if(cur&&!miss.includes(t.idx+1)){
+    if(t.guided)h+=tSheet();
+    else h+=`<div class="toolbar"><button type="button" id="tStep">Siguiente caso</button><button type="button" class="ghost" id="tEpoch">Completar época</button><button type="button" class="ghost" id="tAll">Entrenar hasta que aprenda</button></div>`;
+  }
+  h+=`<div class="toolbar"><button type="button" class="ghost" id="tReset">Reiniciar desde los pesos iniciales</button>${t.guided&&!t.done&&!miss.includes(t.idx+1)?`<button type="button" class="ghost" id="tSkip">Hazlo por mí (este caso)</button>`:""}<span class="fb" id="tMsg"></span></div>`;
+  if(t.log.length){h+=`<h3>Registro</h3><div class="tablewrap"><table><tr><th>Época</th><th>Caso</th><th>Entradas</th><th class="r">d</th><th class="r">A</th><th class="r">ŷ</th><th class="r">error</th>${t.w.map((_,i)=>`<th class="r">w${i+1}</th>`).join("")}<th class="r">b</th></tr>
+    ${t.log.slice().reverse().map(r=>`<tr${r.e?"":' class="dim"'}><td>${r.ep}</td><td>${r.caso}</td><td class="num">${r.x.map(mm).join(", ")}</td><td class="r">${r.d}</td><td class="r num">${m(r.A)}</td><td class="r">${r.yh}</td><td class="r ${r.e>0?"pos":r.e<0?"neg":""}">${r.e>0?"+1":r.e<0?"−1":"0"}</td>${r.w.map(w=>`<td class="r num">${mm(w)}</td>`).join("")}<td class="r num">${mm(r.b)}</td></tr>`).join("")}</table></div><p class="muted" style="font-size:.85rem">Lo más reciente arriba. Las filas grises acertaron y no cambiaron nada.</p>`}
+  $("#tDyn").innerHTML=h;
+}
+function tSheet(){const t=T(),c=tCalc(),r=c.r,s=t.stage,k=t.w.length;
+  const inp=(f,dis)=>`<input type="text" inputmode="decimal" class="cell" id="tg-${f}" data-tg="${f}" value="${esc(t.gv[f]??"")}"${dis?" disabled":""} aria-label="Respuesta ${f}">`;
+  const fb=f=>t.gm[f]?`<span class="fb ${t.gm[f][0]}">${t.gm[f][1]}</span>`:"";
+  const st=i=>s===i?"stage cur":s>i?"stage okst":"stage";
+  const btn=i=>s===i?`<div class="toolbar"><button type="button" data-tc="${i}">Comprobar</button><button type="button" class="ghost" data-tr="${i}">Mostrar respuesta</button></div>`:"";
+  let h=`<div class="sheet"><p>Caso ${t.idx+1}: ${r.x.map((v,i)=>`${esc(t.names[i]||"x"+(i+1))} = ${mm(v)}`).join(", ")} · respuesta correcta d = <b>${r.d}</b></p>`;
+  h+=`<div class="${st(0)}"><h3><small>PASO 1</small>Suma ponderada A</h3><p class="why">Multiplica cada entrada por su peso actual, suma todo y suma el sesgo.</p>
+    <div class="line"><span class="eq">A = ${t.w.map((w,i)=>`${par(w)}·${par(r.x[i])}`).join(" + ")} + ${par(t.b)} =</span>${inp("A",s>0)}${fb("A")}</div>${btn(0)}</div>`;
+  if(s>=1)h+=`<div class="${st(1)}"><h3><small>PASO 2</small>Salida del perceptrón ŷ</h3><p class="why">${ACT[t.rule].why}</p>
+    <div class="line"><span class="eq">ŷ = escalón(${m(c.A)}) =</span>${inp("y",s>1)}${fb("y")}</div>${btn(1)}</div>`;
+  if(s>=2)h+=`<div class="${st(2)}"><h3><small>PASO 3</small>Error</h3><p class="why">error = d − ŷ. Solo puede dar −1, 0 o +1.</p>
+    <div class="line"><span class="eq">error = ${r.d} − ${c.yh} =</span>${inp("e",s>2)}${fb("e")}</div>${btn(2)}</div>`;
+  if(s>=3){if(c.e===0)h+=`<div class="box good"><b>Error 0: acertó</b><p>Si acierta no se corrige nada; los pesos quedan igual.</p><div><button type="button" id="tNext">Pasar al siguiente caso →</button></div></div>`;
+    else{h+=`<div class="${st(3)}"><h3><small>PASO 4</small>Corrige pesos y sesgo</h3><p class="why">${c.e>0?"Se quedó corto (dijo 0 y era 1): los pesos de las entradas que no son cero suben.":"Se pasó (dijo 1 y era 0): los pesos de las entradas que no son cero bajan."} Regla: w<sub>i</sub> ← w<sub>i</sub> + α·error·x<sub>i</sub> y b ← b + α·error.</p>`;
+      t.w.forEach((w,i)=>h+=`<div class="line"><span class="eq">w${i+1} = ${mm(w)} + ${mm(t.alpha)}·(${c.e>0?"1":"−1"})·${par(r.x[i])} =</span>${inp("w"+i,s>3)}${fb("w"+i)}</div>`);
+      h+=`<div class="line"><span class="eq">b = ${mm(t.b)} + ${mm(t.alpha)}·(${c.e>0?"1":"−1"}) =</span>${inp("b",s>3)}${fb("b")}</div>${btn(3)}`;
+      if(s>=4)h+=`<div><button type="button" id="tNext">Guardar y pasar al siguiente caso →</button></div>`;h+=`</div>`}}
+  return h+`</div>`}
+function tCheck(i,reveal){const t=T(),c=tCalc(),tol=1.5e-3,g=f=>num(t.gv[f]??"");
+  const put=(f,val,fmt)=>{t.gv[f]=fmt(val);t.gm[f]=["rev","respuesta mostrada"]};
+  if(i===0){if(reveal){put("A",c.A,m);t.stage=1}else{const v=g("A");const s=cz(c.A-t.b);
+    if(v!==null&&Math.abs(v-c.A)<=tol){t.gm.A=["ok","✓"];t.stage=1}else t.gm.A=["bad",v===null?"Escribe un número.":Math.abs(v-s)<=tol?"Te faltó sumar el sesgo b.":"No da. Revisa productos y signos."]}}
+  if(i===1){if(reveal){put("y",c.yh,String);t.stage=2}else{const v=g("y");
+    if(v===c.yh){t.gm.y=["ok","✓"];t.stage=2}else t.gm.y=["bad",v!==0&&v!==1?"Con escalón la salida es 0 o 1.":t.rule==="stepgt"&&c.A===0?"A es exactamente 0 y la regla pide A > 0.":"Compara A con 0."]}}
+  if(i===2){if(reveal){put("e",c.e,String);t.stage=3}else{const v=g("e");
+    if(v===c.e){t.gm.e=["ok","✓"];t.stage=3}else t.gm.e=["bad","Es d − ŷ, en ese orden."]}}
+  if(i===3){if(reveal){c.nw.forEach((w,k)=>put("w"+k,w,mm));put("b",c.nb,mm);t.stage=4}else{let all=true;
+    c.nw.forEach((w,k)=>{const v=g("w"+k);if(v!==null&&Math.abs(v-w)<=tol)t.gm["w"+k]=["ok","✓"];else{all=false;t.gm["w"+k]=["bad",c.r.x[k]===0?"Esta entrada vale 0: el peso no cambia.":"Revisa: peso + α·error·x."]}});
+    const v=g("b");if(v!==null&&Math.abs(v-c.nb)<=tol)t.gm.b=["ok","✓"];else{all=false;t.gm.b=["bad","El sesgo cambia en α·error."]}
+    if(all)t.stage=4}}
+  save();renderTDyn();const nx=document.querySelector("#tDyn input:not([disabled])");nx&&nx.focus()}
+$("#tDyn").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;const t=T();
+  if(b.dataset.tc)tCheck(+b.dataset.tc,false);else if(b.dataset.tr)tCheck(+b.dataset.tr,true);
+  else{if(b.id==="tNext"||b.id==="tStep"||b.id==="tSkip")tCommit();
+    if(b.id==="tEpoch"){const ep=t.ep;let n=0;while(!t.done&&t.ep===ep&&n++<1000&&!tMissing().length)tCommit()}
+    if(b.id==="tAll"){let n=0;while(!t.done&&n<5000&&!tMissing().length){tCommit();n++}
+      if(!t.done){save();renderTDyn();$("#tMsg").textContent="No aprendió en 5000 pasos: quizá los datos no se pueden separar con una línea recta (como XOR).";return}}
+    if(b.id==="tReset")tReset();
+    save();renderTDyn()}});
+$("#tDyn").addEventListener("input",e=>{if(e.target.dataset.tg){T().gv[e.target.dataset.tg]=e.target.value;save()}});
+$("#tDyn").addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.dataset.tg){e.preventDefault();tCheck(T().stage,false)}});
+$("#tDyn").addEventListener("change",e=>{if(e.target.id==="tGuided"){T().guided=e.target.checked;T().stage=0;T().gv={};T().gm={};save();renderTDyn()}});
+$("#tCfg").addEventListener("input",e=>{const el=e.target,t=T(),f=el.dataset.t;if(!f||f==="rule")return;
+  if(f==="nm"){t.names[+el.dataset.i]=el.value;save();renderTDyn();return}
+  const v=num(el.value);
+  if(f==="d"){const d=v===0||v===1?v:null;el.classList.toggle("bad",el.value.trim()!==""&&d===null);t.data[+el.dataset.r].d=d}
+  else{el.classList.toggle("bad",v===null);if(v===null&&f!=="x")return;
+    if(f==="alpha")t.alpha=v;if(f==="w0")t.init.w[+el.dataset.i]=v;if(f==="b0")t.init.b=v;if(f==="x")t.data[+el.dataset.r].x[+el.dataset.i]=v}
+  tReset();save();renderTDyn()});
+$("#tCfg").addEventListener("change",e=>{if(e.target.dataset.t==="rule"){T().rule=e.target.value;tReset();save();renderTDyn()}});
+$("#tCfg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;const t=T();
+  if(b.id==="loadTrain"){S.train=newTrain($("#presetTrain").value)}
+  else if(b.id==="tInc"&&t.init.w.length<6){t.init.w.push(0);t.names.push("");t.data.forEach(r=>r.x.push(0))}
+  else if(b.id==="tDec"&&t.init.w.length>1){t.init.w.pop();t.names.pop();t.data.forEach(r=>r.x.pop())}
+  else if(b.id==="tAddRow"){t.data.push({x:Array(t.init.w.length).fill(0),d:null})}
+  else if(b.dataset.del!=null&&t.data.length>1){t.data.splice(+b.dataset.del,1)}
+  else return;
+  tReset();save();renderTCfg();renderTDyn()});
+
+/* ---------------- Pestañas y guardar ---------------- */
+function setTab(tab){S.tab=tab;$("#tabRed").setAttribute("aria-selected",String(tab==="red"));$("#tabTrain").setAttribute("aria-selected",String(tab==="train"));
+  $("#viewRed").hidden=tab!=="red";$("#viewTrain").hidden=tab!=="train";if(tab==="train"){renderTCfg();renderTDyn()}save()}
+$("#tabRed").onclick=()=>setTab("red");$("#tabTrain").onclick=()=>setTab("train");
+$("#copyJson").onclick=()=>{const txt=JSON.stringify({net:S.net,train:Object.assign({},S.train,{log:[]})});$("#json").value=txt;
+  const ok=()=>$("#jsonMsg").textContent="Copiado.";const fail=()=>{$("#json").select();$("#jsonMsg").textContent="Selecciona el texto y cópialo a mano."};
+  try{navigator.clipboard.writeText(txt).then(ok,fail)}catch(e){fail()}};
+$("#loadJson").onclick=()=>{try{const o=JSON.parse($("#json").value);if(!o.net||!Array.isArray(o.net.layers)||!o.net.W)throw 0;
+  S.net=o.net;if(o.train&&o.train.init)S.train=Object.assign(newTrain("and"),o.train);resetPractice();S.sel=[1,0];tReset();full();if(S.tab==="train"){renderTCfg();renderTDyn()}$("#jsonMsg").textContent="Ejercicio cargado."}
+  catch(e){$("#jsonMsg").textContent="Ese código no es válido. Copia el texto completo, desde la primera llave hasta la última."}};
+
+full();setTab(S.tab||"red");
+})();
+</script>
+
+</body>
+</html>

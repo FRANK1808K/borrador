@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Neuronas desde cero</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: una sola columna tipo cuaderno de laboratorio; cada clase es un bloque con su número real de secuencia, y los ejercicios tienen solución plegable. */
+:root{
+  --bg:#f3f5f9; --paper:#ffffff; --ink:#1b2333; --muted:#5b6578; --line:#d9dee8;
+  --pos:#2f5fc4; --pos-soft:#e3ebfb; --neg:#b03a62; --neg-soft:#f8e4eb;
+  --accent:#e08a12; --accent-soft:#fdf0db; --ok:#1f8a5a; --ok-soft:#dff3e9;
+  --code:#eef1f7;
+  --f-display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --f-body:"Atkinson Hyperlegible",ui-sans-serif,system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11151d; --paper:#19202b; --ink:#e6eaf2; --muted:#9aa5b8; --line:#2c3545;
+  --pos:#7ba3f2; --pos-soft:#1e2c47; --neg:#ec7fa3; --neg-soft:#3c1f2b;
+  --accent:#f2a93b; --accent-soft:#3a2b14; --ok:#5ccf98; --ok-soft:#173528; --code:#202836; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11151d; --paper:#19202b; --ink:#e6eaf2; --muted:#9aa5b8; --line:#2c3545;
+  --pos:#7ba3f2; --pos-soft:#1e2c47; --neg:#ec7fa3; --neg-soft:#3c1f2b;
+  --accent:#f2a93b; --accent-soft:#3a2b14; --ok:#5ccf98; --ok-soft:#173528; --code:#202836; color-scheme:dark}
+
+*{box-sizing:border-box}
+html{color-scheme:light}body{margin:0}[hidden]{display:none!important}img{max-width:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:17px;line-height:1.6;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 64px}
+.wrap{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;line-height:1.15;margin:0}
+h1{font-size:clamp(2.2rem,6vw,3.4rem);font-weight:800;letter-spacing:-.02em}
+h2{font-size:clamp(1.5rem,3.6vw,2rem);font-weight:800}
+h3{font-size:1.2rem;font-weight:600}
+p{margin:0;max-width:68ch}
+.mono,code,.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+code{background:var(--code);padding:1px 6px;border-radius:5px;font-size:.88em}
+.pos{color:var(--pos)} .neg{color:var(--neg)} .acc{color:var(--accent)}
+
+header.hero{padding-block:48px 8px;display:flex;flex-direction:column;gap:14px}
+.eyebrow{font-family:var(--f-mono);font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.lede{font-size:1.15rem;color:var(--muted)}
+nav.toc{display:flex;flex-wrap:wrap;gap:8px}
+nav.toc a{font-family:var(--f-mono);font-size:.8rem;color:var(--ink);text-decoration:none;border:1px solid var(--line);background:var(--paper);padding:5px 10px;border-radius:999px}
+nav.toc a:hover,nav.toc a:focus-visible{border-color:var(--pos);color:var(--pos);outline:none}
+
+section.clase{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:28px clamp(18px,4vw,36px);display:flex;flex-direction:column;gap:16px;min-width:0}
+.clase-head{display:flex;gap:14px;align-items:baseline}
+.clase-n{font-family:var(--f-mono);font-weight:600;color:var(--accent);font-size:1rem;flex:none}
+.box{border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.idea{background:var(--accent-soft)}
+.idea b:first-child{font-family:var(--f-display)}
+.warn{background:var(--neg-soft)}
+.good{background:var(--ok-soft)}
+.formula{font-family:var(--f-mono);font-size:clamp(.95rem,2.6vw,1.15rem);background:var(--code);border-radius:10px;padding:14px 16px;overflow-x:auto;white-space:nowrap}
+.formula small{display:block;font-family:var(--f-body);color:var(--muted);font-size:.85rem;white-space:normal;margin-top:6px}
+ul,ol{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:4px}
+
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-size:.93rem}
+th,td{padding:7px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-family:var(--f-mono);font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--code)}
+tr:last-child td{border-bottom:none}
+td.r,th.r{text-align:right}
+
+.steps{display:flex;flex-direction:column;gap:6px;font-family:var(--f-mono);font-size:.86rem;background:var(--code);border-radius:10px;padding:14px 16px;overflow-x:auto}
+.steps div{white-space:nowrap}
+.steps .h{font-family:var(--f-body);font-weight:700;font-size:.95rem;margin-top:6px}
+.steps .h:first-child{margin-top:0}
+.off{color:var(--muted)}
+.chip{display:inline-block;font-family:var(--f-mono);font-size:.75rem;padding:1px 8px;border-radius:999px;margin-left:6px}
+.chip.on{background:var(--ok-soft);color:var(--ok)} .chip.offc{background:var(--neg-soft);color:var(--neg)}
+
+details{border:1px solid var(--line);border-radius:10px;background:var(--paper)}
+details>summary{cursor:pointer;padding:12px 16px;font-weight:700;list-style:none;display:flex;justify-content:space-between;gap:12px}
+details>summary::-webkit-details-marker{display:none}
+details>summary::after{content:"Ver solución ▾";font-family:var(--f-mono);font-weight:400;font-size:.8rem;color:var(--pos)}
+details[open]>summary::after{content:"Ocultar ▴"}
+details>summary:focus-visible{outline:2px solid var(--pos);outline-offset:2px;border-radius:10px}
+details>.inner{padding:0 16px 16px;display:flex;flex-direction:column;gap:12px}
+.q{display:flex;flex-direction:column;gap:6px}
+.q>b{font-family:var(--f-mono);font-size:.78rem;letter-spacing:.08em;color:var(--accent)}
+
+.lab{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:18px;align-items:start}
+@media (max-width:700px){.lab{grid-template-columns:1fr}}
+.ctrls{display:flex;flex-direction:column;gap:10px}
+.ctrl{display:grid;grid-template-columns:3.2em 1fr 4.2em;align-items:center;gap:10px}
+.ctrl label{font-family:var(--f-mono);font-size:.9rem}
+.ctrl output{font-family:var(--f-mono);font-size:.9rem;text-align:right}
+input[type=range]{width:100%;accent-color:var(--pos)}
+canvas{width:100%;max-width:100%;aspect-ratio:1/1;border:1px solid var(--line);border-radius:10px;background:var(--paper);display:block}
+.readout{font-family:var(--f-mono);font-size:.88rem;background:var(--code);border-radius:10px;padding:12px 14px;overflow-x:auto;white-space:nowrap}
+.big{font-family:var(--f-display);font-size:1.6rem;font-weight:800}
+
+button{font:inherit;font-weight:700;font-size:.92rem;border:1px solid var(--pos);background:var(--pos);color:var(--paper);padding:8px 14px;border-radius:8px;cursor:pointer}
+button.ghost{background:transparent;color:var(--pos)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+
+.netwrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--paper)}
+.netwrap svg{display:block;min-width:560px;width:100%;height:auto}
+.mapgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.map{border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:4px}
+.map .bio{font-family:var(--f-mono);font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.map .art{font-family:var(--f-display);font-weight:600}
+footer{color:var(--muted);font-size:.9rem;text-align:center}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<p style="padding-top:16px;margin:0"><a href="index.html" style="color:var(--pos)">← Ir al laboratorio para practicar</a></p>
+<header class="hero">
+  <span class="eyebrow">Inteligencia artificial · desde cero</span>
+  <h1>Neuronas desde cero</h1>
+  <p class="lede">Siete clases cortas, del perceptrón a una red con capas ocultas, y todos tus ejercicios resueltos paso a paso. Lee en orden: cada clase usa lo de la anterior.</p>
+  <nav class="toc" aria-label="Clases">
+    <a href="#c1">1 · La idea</a><a href="#c2">2 · Perceptrón</a><a href="#c3">3 · Cómo aprende</a>
+    <a href="#c4">4 · Ej. lluvia</a><a href="#c5">5 · Ej. práctica</a><a href="#c6">6 · Redes y ReLU</a>
+    <a href="#c7">7 · Ej. redes</a><a href="#chuleta">Chuleta</a>
+  </nav>
+</header>
+
+<!-- 1 -->
+<section class="clase" id="c1">
+  <div class="clase-head"><span class="clase-n">01</span><h2>La idea: copiar (muy mal) una neurona</h2></div>
+  <p>Una neurona de verdad recibe señales por las <b>dendritas</b>, las junta en el <b>cuerpo celular</b> y, si la señal total es suficientemente fuerte, "dispara" un impulso por el <b>axón</b>. En 1943 McCulloch y Pitts lo pasaron a matemáticas. Así se traduce cada parte:</p>
+  <div class="mapgrid">
+    <div class="map"><span class="bio">Dendritas</span><span class="art">Entradas x₁, x₂…</span><span>Los datos que llegan (humedad, nota, temperatura…).</span></div>
+    <div class="map"><span class="bio">Fuerza de la sinapsis</span><span class="art">Pesos w₁, w₂…</span><span>Cuánto importa cada entrada. Positivo empuja a "sí", negativo a "no".</span></div>
+    <div class="map"><span class="bio">Cuerpo celular</span><span class="art">Suma Σ + sesgo b</span><span>Junta todo en un solo número z.</span></div>
+    <div class="map"><span class="bio">¿Dispara o no?</span><span class="art">Activación f(z)</span><span>Decide la salida a partir de z.</span></div>
+    <div class="map"><span class="bio">Axón</span><span class="art">Salida ŷ</span><span>El resultado, que puede ir a otra neurona.</span></div>
+  </div>
+  <div class="box idea"><b>La idea clave</b><p>Una neurona artificial es solo esto: <b>multiplica, suma, decide</b>. Todo lo demás de este tema (redes, capas, ReLU) es repetir eso muchas veces.</p></div>
+</section>
+
+<!-- 2 -->
+<section class="clase" id="c2">
+  <div class="clase-head"><span class="clase-n">02</span><h2>El perceptrón en 3 pasos</h2></div>
+  <p>El perceptrón (Rosenblatt, 1957) es la neurona artificial más simple. Clasifica en dos grupos: 1 o 0, sí o no.</p>
+  <div class="formula"><b>Paso 1 · multiplica y suma:</b>&nbsp; z = w₁·x₁ + w₂·x₂ + … + wₙ·xₙ + b
+    <small>Cada entrada por su peso, todo sumado, más el sesgo b. En algunos materiales a z le dicen A (es lo mismo).</small></div>
+  <div class="formula"><b>Paso 2 · decide (función escalón):</b>&nbsp; ŷ = 1 si z ≥ 0 &nbsp;·&nbsp; ŷ = 0 si z &lt; 0
+    <small>Ojo: algunos ejercicios usan "1 si z &gt; 0" (estrictamente mayor). Solo cambia algo cuando z da exactamente 0. Usa siempre la que diga tu enunciado.</small></div>
+  <div class="formula"><b>Paso 3 · interpreta:</b>&nbsp; 1 = clase "sí" &nbsp;·&nbsp; 0 = clase "no"</div>
+  <div class="box idea"><b>¿Y el sesgo b para qué?</b><p>Es el "umbral de exigencia". Un b muy negativo obliga a que las entradas sumen mucho antes de que la neurona diga 1. Un b positivo la vuelve fácil de convencer.</p></div>
+
+  <h3>Laboratorio: mueve los pesos y mira la frontera</h3>
+  <p>Los puntos son los datos del afiche (rojos = clase 0, azules = clase 1). La línea discontinua es donde z = 0: de un lado la neurona dice 1, del otro dice 0. El punto naranja es una entrada que tú mueves.</p>
+  <div class="lab">
+    <div class="ctrls">
+      <div class="ctrl"><label for="pw1">w₁</label><input type="range" id="pw1" min="-1.5" max="1.5" step="0.05" value="0.5"><output id="opw1"></output></div>
+      <div class="ctrl"><label for="pw2">w₂</label><input type="range" id="pw2" min="-1.5" max="1.5" step="0.05" value="0.8"><output id="opw2"></output></div>
+      <div class="ctrl"><label for="pb">b</label><input type="range" id="pb" min="-5" max="5" step="0.1" value="-3"><output id="opb"></output></div>
+      <div class="ctrl"><label for="px1">x₁</label><input type="range" id="px1" min="0" max="4.5" step="0.1" value="2"><output id="opx1"></output></div>
+      <div class="ctrl"><label for="px2">x₂</label><input type="range" id="px2" min="0" max="4.5" step="0.1" value="1"><output id="opx2"></output></div>
+      <div class="readout" id="pread"></div>
+      <p id="pscore" class="mono" style="font-size:.88rem"></p>
+    </div>
+    <canvas id="pcanvas" width="520" height="520" aria-label="Plano con puntos de dos clases y la frontera de decisión del perceptrón"></canvas>
+  </div>
+  <div class="box warn"><b>Su límite</b><p>Una sola neurona solo puede separar con una <b>línea recta</b>. Si los datos no se pueden separar así (el famoso XOR), el perceptrón no sirve. Por eso existen las redes con varias capas (clase 6).</p></div>
+</section>
+
+<!-- 3 -->
+<section class="clase" id="c3">
+  <div class="clase-head"><span class="clase-n">03</span><h2>Cómo aprende: corregir cuando se equivoca</h2></div>
+  <p>"Aprender" significa ajustar pesos y sesgo. Le muestras un ejemplo con la respuesta correcta <b>y</b> (tu material a veces la llama <b>d</b>). Si acierta, no toca nada. Si falla, corrige un poquito:</p>
+  <div class="formula">error = y − ŷ<br>wᵢ ← wᵢ + α · error · xᵢ<br>b &nbsp;← b &nbsp;+ α · error
+    <small>α es la tasa de aprendizaje (qué tan grande es cada corrección, p. ej. 0.1). Como ŷ y y solo valen 0 o 1, el error solo puede ser −1, 0 o +1.</small></div>
+  <div class="tablewrap"><table>
+    <tr><th>y (real)</th><th>ŷ (dijo)</th><th>error</th><th>Qué pasa</th></tr>
+    <tr><td>1</td><td>1</td><td>0</td><td>Acertó. Nada cambia.</td></tr>
+    <tr><td>0</td><td>0</td><td>0</td><td>Acertó. Nada cambia.</td></tr>
+    <tr><td>1</td><td>0</td><td class="pos">+1</td><td>Fue muy tímida: los pesos <span class="pos">suben</span>.</td></tr>
+    <tr><td>0</td><td>1</td><td class="neg">−1</td><td>Fue muy lanzada: los pesos <span class="neg">bajan</span>.</td></tr>
+  </table></div>
+  <p>Una <b>época</b> es pasar una vez por todos los ejemplos. Se repiten épocas (sin reiniciar los pesos) hasta que una época completa no tenga errores.</p>
+
+  <h3>Ejemplo del afiche, mal clasificado</h3>
+  <div class="steps">
+    <div>w₁=0.5, w₂=0.8, b=−1.5, α=0.1 · entrada x₁=0, x₂=0, y=1</div>
+    <div>z = 0.5(0) + 0.8(0) − 1.5 = −1.5 → ŷ = 0</div>
+    <div>error = 1 − 0 = 1</div>
+    <div>w₁ ← 0.5 + 0.1(1)(0) = 0.5 &nbsp;&nbsp;(x₁ = 0, así que no cambia)</div>
+    <div>w₂ ← 0.8 + 0.1(1)(0) = 0.8</div>
+    <div>b &nbsp;← −1.5 + 0.1(1) = <b>−1.4</b> &nbsp;&nbsp;(el sesgo siempre se corrige)</div>
+  </div>
+
+  <h3>Míralo aprender: compuerta AND</h3>
+  <p>AND da 1 solo si las dos entradas son 1. Arrancamos con todo en 0 y α = 0.1. Dale a "Siguiente ejemplo" y mira cómo corrige cuando se equivoca.</p>
+  <div class="row">
+    <button type="button" id="andStep">Siguiente ejemplo</button>
+    <button type="button" class="ghost" id="andEpoch">Completar época</button>
+    <button type="button" class="ghost" id="andReset">Reiniciar</button>
+    <span class="mono" id="andState"></span>
+  </div>
+  <div class="tablewrap"><table id="andLog">
+    <thead><tr><th>Época</th><th>x₁ x₂</th><th>y</th><th class="r">z</th><th>ŷ</th><th>error</th><th class="r">w₁</th><th class="r">w₂</th><th class="r">b</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+</section>
+
+<!-- 4 -->
+<section class="clase" id="c4">
+  <div class="clase-head"><span class="clase-n">04</span><h2>Ejercicio: ¿va a llover hoy?</h2></div>
+  <p>Perceptrón de 4 entradas con pesos fijos (no se entrena, solo se evalúa).</p>
+  <div class="tablewrap"><table>
+    <tr><th>Entrada</th><th>Variable</th><th class="r">Valor</th><th class="r">Normalizado (÷100)</th><th class="r">Peso</th></tr>
+    <tr><td>x₁</td><td>Humedad relativa (%)</td><td class="r num">80</td><td class="r num">0.80</td><td class="r num pos">0.4</td></tr>
+    <tr><td>x₂</td><td>Probabilidad de lluvia (%)</td><td class="r num">70</td><td class="r num">0.70</td><td class="r num pos">0.3</td></tr>
+    <tr><td>x₃</td><td>Velocidad del viento (km/h)</td><td class="r num">20</td><td class="r num">0.20</td><td class="r num neg">−0.2</td></tr>
+    <tr><td>x₄</td><td>Nubosidad (%)</td><td class="r num">90</td><td class="r num">0.90</td><td class="r num pos">0.5</td></tr>
+  </table></div>
+  <p>Sesgo b = −0.6 · activación: ŷ = 1 si z ≥ 0 (emitir alerta), 0 si z &lt; 0.</p>
+  <details><summary>Solución paso a paso</summary><div class="inner">
+    <div class="q"><b>1 · NORMALIZAR</b><p>Se divide todo entre 100 para que las entradas queden en una escala parecida (0 a 1): x = (0.80, 0.70, 0.20, 0.90). Si no se normaliza, la nubosidad (90) aplastaría a todo lo demás solo por ser un número grande.</p></div>
+    <div class="q"><b>2 · COMBINACIÓN PONDERADA</b>
+      <div class="steps">
+        <div>z = 0.4(0.80) + 0.3(0.70) + (−0.2)(0.20) + 0.5(0.90) + (−0.6)</div>
+        <div>z = 0.32 + 0.21 − 0.04 + 0.45 − 0.6</div>
+        <div>z = <b>0.34</b></div>
+      </div></div>
+    <div class="q"><b>3 · ACTIVACIÓN</b><p>0.34 ≥ 0 → <b>ŷ = 1</b>. Se emite alerta de lluvia.</p></div>
+    <div class="q"><b>4 · ANÁLISIS</b><p>Las tres variables con peso positivo (humedad, probabilidad, nubosidad) aportan 0.32 + 0.21 + 0.45 = 0.98, que supera de sobra el sesgo de −0.6. El viento tiene peso <span class="neg">negativo</span>: entre más viento, menos probable la lluvia según el modelo (el viento dispersa las nubes). Aquí resta solo 0.04 porque hay poco viento. Para apagar la alerta, el viento tendría que restar más de 0.34; o sea 0.2·x₃ &gt; 0.34, x₃ &gt; 1.7, es decir más de 170 km/h.</p></div>
+  </div></details>
+</section>
+
+<!-- 5 -->
+<section class="clase" id="c5">
+  <div class="clase-head"><span class="clase-n">05</span><h2>Ejercicio: ¿aprueba la práctica?</h2></div>
+  <p>Entradas: x₁ entregó proyecto, x₂ sustentó, x₃ aprobó quiz. Pesos w = (0.4, 0.3, 0.2), b = −2.0, A = w₁x₁ + w₂x₂ + w₃x₃ + b, ŷ = 1 si A &gt; 0 (estricto).</p>
+  <div class="box warn"><b>Ojo con este enunciado</b>
+    <ul>
+      <li>Dice que las entradas valen 0 o 1, pero la tabla trae valores de 0 a 5. Lo calculé con los valores de la tabla, tal cual.</li>
+      <li>La tabla <b>no trae la columna d</b> (la salida esperada). Sin d no se puede calcular el error ni entrenar. Abajo está la evaluación con los pesos iniciales; si tu profe te da la columna d, aplicas la regla de la clase 3 caso por caso.</li>
+    </ul></div>
+  <p>Ejemplo del caso 1, para que veas el procedimiento: A = 0.4(5) + 0.3(4) + 0.2(3) − 2.0 = 2.0 + 1.2 + 0.6 − 2.0 = <b>1.8</b> &gt; 0 → ŷ = 1.</p>
+  <details><summary>Tabla completa de los 15 casos</summary><div class="inner">
+    <div class="tablewrap"><table id="practica">
+      <thead><tr><th>Caso</th><th class="r">x₁</th><th class="r">x₂</th><th class="r">x₃</th><th>Cálculo</th><th class="r">A</th><th>ŷ</th></tr></thead><tbody></tbody>
+    </table></div>
+    <p>Fíjate en el <b>caso 5</b>: A da exactamente 0. Con la regla "A &gt; 0" eso es ŷ = 0. Con la regla "z ≥ 0" del afiche sería 1. Por eso importa leer bien la función de activación.</p>
+  </div></details>
+</section>
+
+<!-- 6 -->
+<section class="clase" id="c6">
+  <div class="clase-head"><span class="clase-n">06</span><h2>Redes: muchas neuronas en capas, con ReLU</h2></div>
+  <p>Una red neuronal es poner perceptrones en fila y en columna. Cada neurona hace exactamente lo mismo de antes (multiplica, suma, decide), pero su "decisión" ya no es 0 o 1:</p>
+  <div class="formula">ReLU(z) = máx(0, z)
+    <small>Si z es negativo, sale 0 (la neurona queda "apagada"). Si es positivo, sale z tal cual. Ejemplos: ReLU(−0.56) = 0 · ReLU(0.39) = 0.39.</small></div>
+  <ul>
+    <li><b>Capa de entrada:</b> no calcula nada. Solo entrega los datos (a = x).</li>
+    <li><b>Capas ocultas:</b> cada neurona recibe <b>todas</b> las salidas de la capa anterior.</li>
+    <li><b>Capa de salida:</b> igual, y su resultado es la respuesta de la red.</li>
+  </ul>
+  <p>Calcular la red de izquierda a derecha se llama <b>propagación hacia adelante</b>. La salida de una capa es la entrada de la siguiente.</p>
+
+  <h3>La notación que asusta (pero no muerde)</h3>
+  <div class="formula">a<sub>j</sub><sup>(l)</sup> = f( Σ<sub>i</sub> w<sub>ji</sub><sup>(l)</sup> · a<sub>i</sub><sup>(l−1)</sup> + b<sub>j</sub><sup>(l)</sup> )</div>
+  <div class="tablewrap"><table>
+    <tr><th>Símbolo</th><th>Se lee</th></tr>
+    <tr><td class="mono">(l)</td><td>en qué capa estoy (1 = primera oculta)</td></tr>
+    <tr><td class="mono">a<sub>j</sub><sup>(l)</sup></td><td>la salida de la neurona j de la capa l</td></tr>
+    <tr><td class="mono">w<sub>ji</sub></td><td><b>llega a j, viene de i</b>. Primero el destino, después el origen.</td></tr>
+    <tr><td class="mono">b<sub>j</sub><sup>(l)</sup></td><td>el sesgo de esa neurona</td></tr>
+  </table></div>
+  <div class="box idea"><b>Truco para las tablas de pesos</b><p>En la matriz W, <b>cada fila es una neurona destino</b> y cada columna es una neurona de la capa anterior. Para calcular la neurona j: toma la fila j, multiplica elemento por elemento con las salidas anteriores, suma y agrega su sesgo. El tamaño de W es (neuronas de esta capa) × (neuronas de la anterior).</p></div>
+  <h3>Contar parámetros</h3>
+  <p>Por cada capa: pesos = neuronas aquí × neuronas antes, y un sesgo por neurona. La entrada no tiene parámetros. Ejemplo para la red del maíz (4 → 4 → 4 → 2): (4×4 + 4) + (4×4 + 4) + (2×4 + 2) = 20 + 20 + 10 = <b>50</b>.</p>
+</section>
+
+<!-- 7 -->
+<section class="clase" id="c7">
+  <div class="clase-head"><span class="clase-n">07</span><h2>Ejercicios de redes, resueltos</h2></div>
+
+  <h3>A · La red del diagrama 4 → 1 → 4 → 1 → 2</h3>
+  <p>Entradas x = (0.80, −0.30, 0.50, −0.22). Todas las capas usan ReLU. Las neuronas en gris quedaron apagadas.</p>
+  <div class="netwrap" id="netA"></div>
+  <details><summary>Cálculo neurona por neurona</summary><div class="inner"><div class="steps" id="stepsA"></div>
+    <p>Resultado: <b>ŷ₁ = <span id="yA1"></span></b>, <b>ŷ₂ = <span id="yA2"></span></b>. ŷ₂ se apagó por muy poquito: su z fue negativo por apenas 0.01. Esta red tiene <span id="paramsA"></span> parámetros.</p>
+  </div></details>
+
+  <h3>B · Riego y fertilización del maíz (cuestionario)</h3>
+  <p>Red 4 → 4 → 4 → 2, todo con ReLU. Entradas normalizadas: humedad 0.80, temperatura −0.30, nitrógeno 0.50, vigor 0.54. Salidas: ŷ₁ = urgencia de riego, ŷ₂ = urgencia de fertilización.</p>
+  <div class="netwrap" id="netB"></div>
+  <details><summary>Las 9 preguntas resueltas</summary><div class="inner" id="maiz"></div></details>
+
+  <h3>Juega con la red del maíz</h3>
+  <p>Mueve las entradas y mira qué neuronas se prenden y qué intervención recomendaría la red.</p>
+  <div class="ctrls" id="playB"></div>
+  <div class="row"><button type="button" class="ghost" id="playReset">Volver a los datos del ejercicio</button><span class="readout" id="playOut"></span></div>
+  <div class="netwrap" id="netPlay"></div>
+</section>
+
+<!-- chuleta -->
+<section class="clase" id="chuleta">
+  <div class="clase-head"><span class="clase-n">✓</span><h2>Chuleta para el parcial</h2></div>
+  <ol>
+    <li><b>Multiplica cada entrada por su peso</b>, suma todo y suma el sesgo. Eso es z.</li>
+    <li><b>Aplica la activación</b> que diga el enunciado: escalón (0/1, mira si es &gt; o ≥) o ReLU (máx(0, z)).</li>
+    <li>En redes, <b>la salida de una capa es la entrada de la siguiente</b>. Una neurona apagada aporta 0 a todo lo que sigue.</li>
+    <li>w<sub>ji</sub>: <b>llega a j, viene de i</b>. Fila = destino.</li>
+    <li>Entrenar (solo perceptrón): si falla, <b>w ← w + α(y − ŷ)x</b> y <b>b ← b + α(y − ŷ)</b>.</li>
+  </ol>
+  <div class="box warn"><b>Errores típicos</b>
+    <ul>
+      <li>Olvidar sumar el sesgo, o sumarlo con el signo cambiado. Escribe siempre "+ (−0.36)".</li>
+      <li>Multiplicar mal los negativos: (−0.33)·(−0.30) = <b>+</b>0.099.</li>
+      <li>Aplicar ReLU a la capa de entrada. La entrada no tiene activación.</li>
+      <li>Redondear en cada paso. Trabaja con 4 decimales y redondea al final.</li>
+      <li>Leer w<sub>31</sub> como "de 3 a 1". Es al revés: de 1 a 3.</li>
+    </ul></div>
+</section>
+<footer>Los números de esta página se calculan en vivo con las mismas fórmulas que ves escritas.</footer>
+</div>
+
+<script>
+(function(){
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const relu=z=>Math.max(0,z);
+const m=v=>(v<0?"−":"")+Math.abs(v).toFixed(4);           // 4 decimales con signo menos real
+const m2=v=>(v<0?"−":"")+Math.abs(v).toFixed(2);
+const par=(v,f=m2)=>v<0?"("+f(v)+")":f(v);
+
+/* ---------- Clase 2: laboratorio del perceptrón ---------- */
+const pts=[[0.4,1.2,0],[0.6,2.15,0],[1.1,1.6,0],[0.85,0.6,0],[1.6,1.0,0],
+           [2.2,3.3,1],[2.8,2.75,1],[3.3,3.55,1],[3.45,2.45,1],[3.95,3.95,1],[4.0,3.3,1]];
+const ids=["pw1","pw2","pb","px1","px2"];
+const cv=document.getElementById("pcanvas"),ctx=cv.getContext("2d");
+function drawPerc(){
+  const [w1,w2,b,x1,x2]=ids.map(i=>+document.getElementById(i).value);
+  ids.forEach(i=>document.getElementById("o"+i).textContent=m2(+document.getElementById(i).value));
+  const W=cv.width,H=cv.height,pad=40,max=4.5,sx=v=>pad+v/max*(W-2*pad),sy=v=>H-pad-v/max*(H-2*pad);
+  ctx.clearRect(0,0,W,H);
+  // regiones
+  const cell=6;
+  for(let px=pad;px<W-pad;px+=cell)for(let py=pad;py<H-pad;py+=cell){
+    const a=(px-pad)/(W-2*pad)*max,c=(H-pad-py)/(H-2*pad)*max;
+    ctx.fillStyle=(w1*a+w2*c+b>=0)?css("--pos-soft"):css("--neg-soft");ctx.fillRect(px,py,cell,cell);}
+  // ejes
+  ctx.strokeStyle=css("--muted");ctx.lineWidth=1;ctx.fillStyle=css("--muted");ctx.font="13px "+css("--f-mono");
+  ctx.beginPath();ctx.moveTo(pad,pad/2);ctx.lineTo(pad,H-pad);ctx.lineTo(W-pad/2,H-pad);ctx.stroke();
+  for(let t=0;t<=4;t++){ctx.fillText(t,sx(t)-4,H-pad+18);ctx.fillText(t,pad-18,sy(t)+4);}
+  ctx.fillText("x₁",W-pad+2,H-pad-6);ctx.fillText("x₂",pad+6,pad/2+6);
+  // frontera w1x1+w2x2+b=0
+  ctx.save();ctx.beginPath();ctx.rect(pad,pad/2,W-pad*1.5,H-pad*1.5);ctx.clip();
+  ctx.strokeStyle=css("--ink");ctx.setLineDash([8,6]);ctx.lineWidth=2;ctx.beginPath();
+  if(Math.abs(w2)>1e-9){ctx.moveTo(sx(0),sy(-b/w2));ctx.lineTo(sx(max),sy((-b-w1*max)/w2));}
+  else if(Math.abs(w1)>1e-9){ctx.moveTo(sx(-b/w1),sy(0));ctx.lineTo(sx(-b/w1),sy(max));}
+  ctx.stroke();ctx.restore();ctx.setLineDash([]);
+  // puntos
+  let ok=0;
+  pts.forEach(([a,c,y])=>{const yh=(w1*a+w2*c+b>=0)?1:0;if(yh===y)ok++;
+    ctx.fillStyle=y?css("--pos"):css("--neg");ctx.beginPath();
+    if(y){ctx.moveTo(sx(a),sy(c)-9);ctx.lineTo(sx(a)+8,sy(c)+6);ctx.lineTo(sx(a)-8,sy(c)+6);ctx.closePath();}
+    else ctx.arc(sx(a),sy(c),7,0,7);
+    ctx.fill();
+    if(yh!==y){ctx.strokeStyle=css("--ink");ctx.lineWidth=2;ctx.beginPath();ctx.arc(sx(a),sy(c),12,0,7);ctx.stroke();}});
+  ctx.fillStyle=css("--accent");ctx.strokeStyle=css("--paper");ctx.lineWidth=3;
+  ctx.beginPath();ctx.arc(sx(x1),sy(x2),9,0,7);ctx.fill();ctx.stroke();
+  const z=w1*x1+w2*x2+b;
+  document.getElementById("pread").innerHTML=
+    `z = ${m2(w1)}·${m2(x1)} + ${m2(w2)}·${m2(x2)} + ${par(b)}<br>z = <b>${m(z)}</b> → ŷ = <b>${z>=0?1:0}</b> (${z>=0?"clase 1":"clase 0"})`;
+  document.getElementById("pscore").textContent=`Puntos bien clasificados: ${ok} de ${pts.length}`+(ok===pts.length?" · ¡Todos!":" · los mal clasificados tienen un círculo");
+}
+ids.forEach(i=>document.getElementById(i).addEventListener("input",drawPerc));
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change",drawPerc);
+new MutationObserver(drawPerc).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+
+/* ---------- Clase 3: AND ---------- */
+const AND=[[0,0,0],[0,1,0],[1,0,0],[1,1,1]];
+let st;const r4=v=>Math.round(v*1e4)/1e4;
+function andReset(){st={w1:0,w2:0,b:0,k:0,ep:1,errs:0,done:false};document.querySelector("#andLog tbody").innerHTML="";andShow();}
+function andShow(){document.getElementById("andState").textContent=st.done?`Aprendió AND en ${st.ep} épocas: una época completa sin errores.`:`Época ${st.ep}, ejemplo ${st.k+1} de 4`;}
+function andStep(){
+  if(st.done)return;
+  const [x1,x2,y]=AND[st.k],z=r4(st.w1*x1+st.w2*x2+st.b),yh=z>=0?1:0,e=y-yh;
+  st.w1=r4(st.w1+0.1*e*x1);st.w2=r4(st.w2+0.1*e*x2);st.b=r4(st.b+0.1*e);if(e)st.errs++;
+  const tr=document.createElement("tr");
+  tr.innerHTML=`<td>${st.ep}</td><td class="num">${x1} ${x2}</td><td>${y}</td><td class="r num">${m2(z)}</td><td>${yh}</td><td class="${e>0?"pos":e<0?"neg":""}">${e>0?"+1":e<0?"−1":"0"}</td><td class="r num">${m2(st.w1)}</td><td class="r num">${m2(st.w2)}</td><td class="r num">${m2(st.b)}</td>`;
+  if(!e)tr.className="off";
+  document.querySelector("#andLog tbody").appendChild(tr);
+  st.k++;if(st.k===4){if(st.errs===0)st.done=true;else{st.k=0;st.ep++;st.errs=0;}}
+  andShow();
+}
+document.getElementById("andStep").onclick=andStep;
+document.getElementById("andEpoch").onclick=()=>{const e=st.ep;do andStep();while(!st.done&&st.ep===e);};
+document.getElementById("andReset").onclick=andReset;andReset();
+
+/* ---------- Clase 5: práctica ---------- */
+const P=[[5,4,3],[2,3,4],[4,1,2],[3,5,4],[1,2,5],[4,4,1],[2,5,5],[5,2,1],[3,2,2],[4,3,5],[1,4,3],[5,3,3],[2,1,1],[3,4,3],[4,2,0]];
+document.querySelector("#practica tbody").innerHTML=P.map((x,i)=>{
+  const A=r4(.4*x[0]+.3*x[1]+.2*x[2]-2);
+  return `<tr><td>${i+1}</td><td class="r num">${x[0]}</td><td class="r num">${x[1]}</td><td class="r num">${x[2]}</td><td class="num">0.4·${x[0]} + 0.3·${x[1]} + 0.2·${x[2]} − 2</td><td class="r num">${m2(A)}</td><td><b>${A>0?1:0}</b></td></tr>`}).join("");
+
+/* ---------- Redes ---------- */
+function forward(layers,x){const acts=[x],zs=[null];
+  layers.forEach(L=>{const a=acts[acts.length-1];const z=L.W.map((row,j)=>row.reduce((s,w,i)=>s+w*a[i],0)+L.b[j]);zs.push(z);acts.push(z.map(relu));});
+  return{acts,zs};}
+function stepsHTML(layers,x,names){const {acts,zs}=forward(layers,x);let h="";
+  layers.forEach((L,l)=>{h+=`<div class="h">${names[l+1]} (recibe: ${acts[l].map(m).join(", ")})</div>`;
+    L.W.forEach((row,j)=>{const terms=row.map((w,i)=>`${par(w)}·${par(acts[l][i],m)}`).join(" + ");
+      const z=zs[l+1][j],a=acts[l+1][j];
+      h+=`<div>z${j+1} = ${terms} + ${par(L.b[j])} = <b>${m(z)}</b></div><div${a?"":" class='off'"}>a${j+1} = máx(0, ${m(z)}) = <b>${m(a)}</b>${a?'<span class="chip on">activa</span>':'<span class="chip offc">apagada</span>'}</div>`;});});
+  return h;}
+function netSVG(el,layers,x,labels){
+  const {acts}=forward(layers,x),sizes=acts.map(a=>a.length),W=760,H=Math.max(...sizes)*78+60,colX=sizes.map((_,i)=>60+i*(W-120)/(sizes.length-1));
+  const pos=sizes.map((n,l)=>Array.from({length:n},(_,j)=>[colX[l],H/2+(j-(n-1)/2)*78]));
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Diagrama de la red con sus activaciones">`;
+  layers.forEach((L,l)=>L.W.forEach((row,j)=>row.forEach((w,i)=>{const [x1,y1]=pos[l][i],[x2,y2]=pos[l+1][j];
+    s+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(${w>=0?"--pos":"--neg"})" stroke-width="${(0.6+Math.abs(w)*3).toFixed(2)}" opacity="${acts[l][i]>0?0.75:0.18}"><title>w${j+1}${i+1} = ${m2(w)}</title></line>`;})));
+  pos.forEach((col,l)=>col.forEach(([cx,cy],j)=>{const a=acts[l][j],on=l===0||a>0;
+    s+=`<circle cx="${cx}" cy="${cy}" r="26" fill="var(${l===0?(a>=0?"--pos-soft":"--neg-soft"):(on?"--ok-soft":"--code")})" stroke="var(${on?"--ink":"--muted"})" stroke-width="1.5"/>`;
+    s+=`<text x="${cx}" y="${cy+5}" text-anchor="middle" font-family="var(--f-mono)" font-size="13" font-weight="600" fill="var(${on?"--ink":"--muted"})">${l===0?m2(a):a.toFixed(3)}</text>`;
+    if(l>0)s+=`<text x="${cx}" y="${cy+42}" text-anchor="middle" font-family="var(--f-mono)" font-size="11" fill="var(--muted)">b=${m2(layers[l-1].b[j])}</text>`;}));
+  labels.forEach((t,l)=>s+=`<text x="${colX[l]}" y="${H-6}" text-anchor="middle" font-family="var(--f-body)" font-size="13" font-weight="700" fill="var(--ink)">${t}</text>`);
+  el.innerHTML=s+"</svg>";}
+const params=layers=>layers.reduce((s,L)=>s+L.W.length*L.W[0].length+L.b.length,0);
+
+// Red A (diagrama 4-1-4-1-2)
+const netA=[{W:[[.62,-.06,-.66,-.87]],b:[-.28]},{W:[[.79],[-.79],[.24],[.89]],b:[-.04,-.11,-.09,-.08]},
+            {W:[[-.38,-.81,.43,-.46]],b:[.39]},{W:[[.73],[-.67]],b:[.15,.24]}];
+const xA=[.8,-.3,.5,-.22],namesA=["Entrada","Oculta 1","Oculta 2","Oculta 3","Salida"];
+netSVG(document.getElementById("netA"),netA,xA,namesA);
+document.getElementById("stepsA").innerHTML=stepsHTML(netA,xA,namesA);
+const fA=forward(netA,xA).acts.at(-1);
+document.getElementById("yA1").textContent=m(fA[0]);document.getElementById("yA2").textContent=m(fA[1]);
+document.getElementById("paramsA").textContent=params(netA);
+
+// Red B (maíz)
+const netB=[{W:[[-.26,.77,-.23,.66],[.74,-.33,.22,-.67],[-.80,.36,-.97,.15],[.06,.56,-.48,-.51]],b:[-.36,-.05,.40,-.30]},
+            {W:[[-.87,.27,.39,.96],[-.77,.31,.48,-.66],[.40,-.45,-.58,-.82],[.85,-.16,.83,.65]],b:[-.34,-.11,-.29,.36]},
+            {W:[[0,.89,-.88,-.96],[-.65,.63,-.35,.36]],b:[.26,.40]}];
+const xB=[.8,-.3,.5,.54],namesB=["Entrada","Oculta 1","Oculta 2","Salida"];
+netSVG(document.getElementById("netB"),netB,xB,namesB);
+const fB=forward(netB,xB),z11=fB.zs[1][0],zNew=z11-(-.36)+.40;
+const row1=netB[0].W[0].map((w,i)=>`${par(w)}·${par(xB[i])}`).join(" + ");
+document.getElementById("maiz").innerHTML=`
+<div class="q"><b>1 · ARQUITECTURA</b><p>Entrada 4, Oculta 1 4, Oculta 2 4, Salida 2. Parámetros: (4×4 + 4) + (4×4 + 4) + (2×4 + 2) = <b>${params(netB)}</b>.</p></div>
+<div class="q"><b>2 · NOTACIÓN</b><p>w<sub>31</sub><sup>(1)</sup>: capa 1, <b>llega a la neurona 3</b> de Oculta 1, <b>viene de x₁</b> (humedad del suelo). Es la fila 3, columna 1 de W(1): <b>−0.80</b>.</p></div>
+<div class="q"><b>3 · SUMA PONDERADA</b><div class="steps"><div>z₁⁽¹⁾ = ${row1} + (−0.36)</div><div>z₁⁽¹⁾ = <b>${m(z11)}</b></div></div></div>
+<div class="q"><b>4 · ACTIVACIÓN</b><p>a₁⁽¹⁾ = máx(0, ${m(z11)}) = <b>0.0000</b>. Como z es negativo, la neurona se apaga.</p></div>
+<div class="q"><b>5 y 6 · CAPA COMPLETA Y PROPAGACIÓN</b><div class="steps">${stepsHTML(netB,xB,namesB)}</div>
+<p>En Oculta 1 quedan apagadas las neuronas 1, 3 y 4 (z negativo, ReLU da 0). Solo pasa la neurona 2. Salida final: <b>ŷ₁ = ${m(fB.acts[3][0])}</b>, <b>ŷ₂ = ${m(fB.acts[3][1])}</b>.</p></div>
+<div class="q"><b>7 · INTERPRETACIÓN</b><p>Riego = ${m(fB.acts[3][0])}, fertilización = ${m(fB.acts[3][1])}. Se recomienda priorizar la <b>fertilización</b>. El puntaje de riego es cero: su z fue ${m(fB.zs[3][0])}, apenas negativo, y ReLU lo apagó; la red no ve urgencia de regar. Tiene sentido: la humedad del suelo está alta (0.80) y el nitrógeno está a medias (0.50).</p></div>
+<div class="q"><b>8 · ANÁLISIS</b><div class="steps"><div>Solo cambia el sesgo, así que: z nuevo = z viejo − b viejo + b nuevo</div><div>z = ${m(z11)} − (−0.36) + 0.40 = <b>${m(zNew)}</b></div><div>a = máx(0, ${m(zNew)}) = <b>${m(relu(zNew))}</b> (antes 0.0000). <b>Aumenta</b>: la neurona se prende.</div></div></div>
+<div class="q"><b>9 · CONCEPTOS</b><p>En las ocultas, ReLU mete la no linealidad (sin ella, apilar capas sería igual a una sola neurona lineal), es baratísima de calcular y evita que el gradiente se desvanezca al entrenar redes profundas. En la salida, ReLU sirve porque los puntajes de urgencia <b>no pueden ser negativos</b>: 0 significa "sin urgencia" y entre más grande, más urgente. No se usa escalón porque queremos un puntaje graduado, no un sí/no.</p></div>`;
+
+// Juego con la red B
+const varsB=["Humedad","Temperatura","Nitrógeno","Vigor"],playEl=document.getElementById("playB");
+playEl.innerHTML=varsB.map((v,i)=>`<div class="ctrl" style="grid-template-columns:7.5em 1fr 4.2em"><label for="pl${i}">x${i+1} ${v}</label><input type="range" id="pl${i}" min="-1" max="1" step="0.01" value="${xB[i]}"><output id="opl${i}"></output></div>`).join("");
+function play(){const x=varsB.map((_,i)=>+document.getElementById("pl"+i).value);
+  x.forEach((v,i)=>document.getElementById("opl"+i).textContent=m2(v));
+  netSVG(document.getElementById("netPlay"),netB,x,namesB);
+  const [r,f]=forward(netB,x).acts[3],tie=Math.abs(r-f)<1e-3;
+  document.getElementById("playOut").innerHTML=`Riego ${m(r)} · Fertilización ${m(f)} → <b>${r===0&&f===0?"ninguna":tie?"ambas por igual":r>f?"priorizar riego":"priorizar fertilización"}</b>`;}
+varsB.forEach((_,i)=>document.getElementById("pl"+i).addEventListener("input",play));
+document.getElementById("playReset").onclick=()=>{xB.forEach((v,i)=>document.getElementById("pl"+i).value=v);play();};
+play();
+
+document.fonts&&document.fonts.ready.then(drawPerc);drawPerc();
+})();
+</script>
+
+</body>
+</html>
